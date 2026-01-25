@@ -312,37 +312,44 @@ ${ctxXML}
 }
 
 function applyDynamics(dt, t){
-  // “Flow → lock” controlled by slider
-  const lockRate = parseFloat(UI.slLock.value) / 1000; // 0.01..0.2ish
+  const lockRate = parseFloat(UI.slLock.value) / 1000;
   state.lock = clamp(state.lock + dt * lockRate, 0, 1);
 
-  // Semantic zoom: as z increases, space feels deeper.
-  // We modulate spring length + repulsion with zoom.
   const z = state.cam.z;
-  const zoomGain = clamp((z - 0.7) / 1.2, 0, 1); // 0..1
+  const zoomGain = clamp((z - 0.7) / 1.2, 0, 1);
 
   const settle = state.lock;
   const damp = 0.72*(1-settle) + 0.92*settle;
 
-  // mild repulsion increases with zoom (prevents “single chain” feel when zoomed in)
   const repulse = 0.008 + 0.020*zoomGain;
 
-  // edge springs
   for (const e of atlas.edges){
-    if (e.type === "taxonomy" && !UI.togTaxEdges.checked) continue;
     const a = atlas.nodes.get(e.from);
     const b = atlas.nodes.get(e.to);
     if (!a || !b) continue;
+
+    const isTax = (e.type === "taxonomy");
+    if (isTax && !UI.togTaxEdges.checked) continue;
 
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.max(1e-3, Math.sqrt(dx*dx + dy*dy));
 
-    // spring target expands with zoom to create “going deeper expands space”
-    const baseLen = (e.type === "taxonomy") ? 110 : 140;
+    const baseLen =
+      e.type === "taxonomy" ? 110 :
+      e.type === "association" ? 170 :
+      e.type === "context" ? 220 :
+      140;
+
     const target = baseLen * (1 + 0.45*zoomGain);
 
-    const k = 0.0009 * (0.6 + 0.8*e.w);
+    const typeScale =
+      e.type === "taxonomy" ? 1.0 :
+      e.type === "association" ? 0.35 :
+      e.type === "context" ? 0.20 :
+      0.25;
+
+    const k = 0.0009 * (0.6 + 0.8*e.w) * typeScale;
     const force = (dist - target) * k;
 
     const fx = (dx/dist) * force;
@@ -352,7 +359,6 @@ function applyDynamics(dt, t){
     b.vx -= fx; b.vy -= fy;
   }
 
-  // repulsion (O(n^2), fine for your curated atlas)
   const arr = [...atlas.nodes.values()];
   for (let i=0;i<arr.length;i++){
     for (let j=i+1;j<arr.length;j++){
@@ -370,7 +376,6 @@ function applyDynamics(dt, t){
     }
   }
 
-  // pull nodes toward their editorial targets (keeps the atlas “authored”)
   for (const n of atlas.nodes.values()){
     const fog = parseFloat(n.fog || "0.3");
     const stable = 0.015 + 0.03*settle;
@@ -384,7 +389,6 @@ function applyDynamics(dt, t){
     n.vx += (tx - n.x) * stable;
     n.vy += (ty - n.y) * stable;
 
-    // fog reduces mobility slightly
     const scale = 1.0 - 0.25*fog;
     n.vx *= damp * scale;
     n.vy *= damp * scale;
@@ -449,16 +453,36 @@ function drawEdges(t){
     }
   }
 
-  // proximity mesh (adds complexity when zoomed in)
+  // context + association edges (always faint)
+  for (const e of atlas.edges){
+    if (e.type !== "context" && e.type !== "association") continue;
+    const a = atlas.nodes.get(e.from), b = atlas.nodes.get(e.to);
+    if (!a || !b) continue;
+
+    const pa = worldToScreen(a.x,a.y), pb = worldToScreen(b.x,b.y);
+    const hot = (state.selected && (e.from===state.selected || e.to===state.selected)) ||
+                (state.hover && (e.from===state.hover || e.to===state.hover));
+
+    const base = e.type === "context" ? 0.08 : 0.12;
+    const alpha = hot ? base + 0.18 : base;
+    ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
+    ctx.lineWidth = 1.0;
+
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  // proximity mesh
   if (UI.togMesh.checked){
     const z = state.cam.z;
     const zoomGain = clamp((z - 0.8) / 1.4, 0, 1);
-    const density = parseFloat(UI.slMesh.value) / 100; // 0..1
-    const maxLinks = Math.floor(40 + density*260); // total mesh edges per frame cap
+    const density = parseFloat(UI.slMesh.value) / 100;
+    const maxLinks = Math.floor(40 + density*260);
     if (density <= 0) return;
 
-    // mesh radius shrinks with zoom, encouraging local connectivity
-    const R = (280 - 120*zoomGain) * (1.0 - 0.35*(1-density)); // world units
+    const R = (280 - 120*zoomGain) * (1.0 - 0.35*(1-density));
     const R2 = R*R;
 
     const nodes = [...atlas.nodes.values()];
@@ -472,9 +496,6 @@ function drawEdges(t){
         const d2 = dx*dx + dy*dy;
         if (d2 > R2) continue;
 
-        // skip if already taxonomy-connected
-        // (cheap check: ignore if ids share direct edge either direction)
-        // keep it lightweight
         const pa = worldToScreen(a.x,a.y), pb = worldToScreen(b.x,b.y);
         const d = Math.sqrt(d2);
 
@@ -585,7 +606,7 @@ async function boot(){
     if (state.drag.on){
       const dx = (sx - state.drag.sx)/state.cam.z;
       const dy = (sy - state.drag.sy)/state.cam.z;
-           state.cam.x = state.drag.cx - dx;
+      state.cam.x = state.drag.cx - dx;
       state.cam.y = state.drag.cy - dy;
       return;
     }
@@ -697,10 +718,10 @@ async function boot(){
   })();
 
   // initial UI defaults if elements exist
-  if (UI.togClouds) UI.togClouds.checked = UI.togClouds.checked ?? true;
-  if (UI.togTaxEdges) UI.togTaxEdges.checked = UI.togTaxEdges.checked ?? true;
-  if (UI.togMesh) UI.togMesh.checked = UI.togMesh.checked ?? true;
-  if (UI.togLabels) UI.togLabels.checked = UI.togLabels.checked ?? true;
+    UI.togClouds.checked = true;
+    UI.togTaxEdges.checked = true;
+    UI.togMesh.checked = true;
+    UI.togLabels.checked = true;
 
   // start animation
   requestAnimationFrame(tick);

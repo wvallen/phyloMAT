@@ -1,165 +1,207 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="UTF-8" />
   <title>phyloMAT</title>
-  <link rel="stylesheet" href="./styles.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: "Courier New", Courier, monospace;
+      background: #ffffff;
+      color: #000000;
+    }
+
+    h1 {
+      font-size: 1.6em;
+      margin-bottom: 0.4em;
+      font-weight: normal;
+    }
+
+    section {
+      max-width: 720px;
+      margin-bottom: 2.5em;
+    }
+
+    p {
+      line-height: 1.6;
+      margin: 0.6em 0;
+    }
+
+    ul {
+      padding-left: 1.2em;
+    }
+
+    li {
+      margin: 0.4em 0;
+    }
+
+    a {
+      color: #000;
+      text-decoration: underline;
+    }
+
+    .controls {
+      margin-top: 1.5em;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 0.95em;
+      padding: 6px 10px;
+      margin-right: 8px;
+      background: #fff;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #f2f2f2;
+    }
+
+    .canvas {
+      margin-top: 2em;
+      width: 100%;
+      height: 420px;
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9em;
+    }
+
+    .quiet {
+      color: #555;
+    }
+  </style>
 </head>
 <body>
-  <div class="app" id="app">
-    <div class="hdr spinOn" id="header">
-      <div class="logoBox" aria-hidden="true">
-        <!-- your exact SVG -->
-        <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200">
-          <g stroke="#1f1f1f" stroke-width="6" stroke-linecap="round">
-            <line x1="0" y1="0" x2="0" y2="-52" />
-            <line x1="0" y1="0" x2="36.8" y2="-36.8" />
-            <line x1="0" y1="0" x2="52" y2="0" />
-            <line x1="0" y1="0" x2="36.8" y2="36.8" />
-            <line x1="0" y1="0" x2="0" y2="52" />
-            <line x1="0" y1="0" x2="-36.8" y2="36.8" />
-            <line x1="0" y1="0" x2="-52" y2="0" />
-            <line x1="0" y1="0" x2="-36.8" y2="-36.8" />
-          </g>
-          <circle cx="0" cy="0" r="14" fill="#7bc96f" />
-          <g fill="#e4572e">
-            <circle cx="0" cy="-70" r="8" />
-            <circle cx="49.5" cy="-49.5" r="8" />
-            <circle cx="70" cy="0" r="8" />
-            <circle cx="49.5" cy="49.5" r="8" />
-            <circle cx="0" cy="70" r="8" />
-            <circle cx="-49.5" cy="49.5" r="8" />
-            <circle cx="-70" cy="0" r="8" />
-            <circle cx="-49.5" cy="-49.5" r="8" />
-          </g>
-        </svg>
-      </div>
 
-      <div class="title">
-        <h1>phyloMAT</h1>
-        <small>motif analysis tool for phylogenomics</small>
-      </div>
+  <section>
+    <h1>phyloMAT</h1>
+    <p>
+      phyloMAT is a causal taxonomy atlas.
+      It represents selected biological lineages and transitions as a topological structure
+      organized by constraint, adjacency, and shared structure.
+    </p>
+    <p>
+      Time is implicit.
+      Uncertainty is represented spatially.
+      Coverage expands as additional regions are explored.
+    </p>
+  </section>
 
-      <div class="spacer"></div>
+  <section>
+    <h2>Instrument</h2>
+    <p>
+      The atlas is interactive and dynamic.
+      Elements briefly adjust when layers or regions change, then settle into a stable configuration.
+    </p>
+    <p>
+      The structure supports layered overlays, including protein motifs, domains, and other recurring biological patterns.
+    </p>
 
-      <button class="btn" id="spinBtn" aria-pressed="true">Spin: ON</button>
-      <button class="btn" id="homeBtn">Home</button>
-      <button class="btn" id="aboutBtn">About</button>
+    <div class="controls">
+      <button onclick="exportState()">Export state.xml</button>
+      <button onclick="exportPrompt()">Generate LLM prompt</button>
     </div>
 
-    <div class="rail">
-      <div class="section">
-        <h2>Navigate</h2>
-        <label for="search">Fly to taxon</label>
-        <input id="search" type="text" placeholder="e.g., Homo sapiens, Eukaryota, Bacteria" />
-        <div class="row">
-          <button class="btn" data-fly="life">Full</button>
-          <button class="btn" data-fly="Bacteria">Bacteria</button>
-          <button class="btn" data-fly="Archaea">Archaea</button>
-          <button class="btn" data-fly="Eukaryota">Eukaryota</button>
-        </div>
-        <div class="row">
-          <button class="btn" data-fly="Metazoa">Animals</button>
-          <button class="btn" data-fly="Fungi">Fungi</button>
-          <button class="btn" data-fly="Viridiplantae">Plants</button>
-          <button class="btn" data-fly="Mammalia">Mammals</button>
-        </div>
-        <div class="hint">Drag to pan. Wheel to zoom. Double-click: fly to nearest label.</div>
-      </div>
-
-      <div class="section">
-        <h2>Proteome set</h2>
-        <label for="taxaSelect">Curated (circa 2004)</label>
-        <select id="taxaSelect"></select>
-        <div class="row">
-          <button class="btn" id="flySelected">Fly</button>
-          <button class="btn" id="pulseSelected" aria-pressed="true">>Pulse</button>
-        </div>
-        <div class="hint"><span class="pill">Labels</span> curated taxa + a few high clades. Everything else stays geometry.</div>
-      </div>
-      <div class="section">
-        <h2>Model systems</h2>
-        <label for="modelSelect">Jump highlight</label>
-        <select id="modelSelect"></select>
-        <div class="hint">Classic lab anchors across the tree.</div>
-      </div>
-
-      <div class="section">
-        <h2>Pathogens</h2>
-        <label for="pathogenSelect">Jump highlight</label>
-        <select id="pathogenSelect"></select>
-        <div class="hint">Surprising branches with human relevance.</div>
-      </div>
-
-      <div class="section">
-        <h2>Explore</h2>
-        <label for="exploreTour">Tours</label>
-        <select id="exploreTour">
-          <option value="">Select…</option>
-          <option value="domains">Domains of life</option>
-          <option value="endosymbiosis">Endosymbiosis (mitochondria)</option>
-          <option value="multicellularity">Multicellularity (multiple origins)</option>
-          <option value="models">Model systems constellation</option>
-          <option value="pathogens">Pathogens across domains</option>
-        </select>
-
-        <label for="timeSlider">Time (landmarks)</label>
-        <input id="timeSlider" type="range" min="0" max="5" step="1" value="5" />
-        <div class="hint">Now: <span id="timeLabel">Present</span></div>
-      </div>
-      <div class="section">
-        <h2>Layer</h2>
-        <label for="layer">Coverage overlay</label>
-          <select id="layer">
-            <option value="none">None</option>
-            <option value="demo_struct">Structures mapped (demo)</option>
-            <option value="rainbow">Muted rainbow (depth)</option>
-            <option value="mito">Mitochondria landmark (eukaryotes)</option>
-          </select>
-        <div class="hint">Demo overlay placeholder until real counts are wired.</div>
-      </div>
+    <div class="canvas">
+      <span class="quiet">atlas view placeholder</span>
     </div>
+  </section>
 
-    <div class="view" id="view">
-      <canvas id="c"></canvas>
-      <div class="hud" id="hud">
-        <span class="pill" id="hudWhere">Tree: life</span>
-        <span class="muted" id="hudLayer">Layer: none</span>
-        <span class="muted" id="hudZoom"></span>
-      </div>
-    </div>
+  <section>
+    <h2>FAQ</h2>
 
-    <div class="ftr">
-      <div>
-        <span class="pill">phyloMAT</span>
-        <span>interactive evolution + proteome context</span>
-      </div>
-      <div>
-        <a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">PubMed</a>
-        <span class="sep">·</span>
-        <a href="https://w.oodland.com" target="_blank" rel="noopener">w.oodland</a>
-      </div>
-    </div>
-  </div>
+    <p><strong>What does this map contain?</strong><br>
+      The atlas contains taxa and transitions that have been examined so far.
+      It is extended through manual iteration.
+    </p>
 
-  <div class="modalBack" id="modalBack" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-label="About phyloMAT">
-      <div class="modalTop">
-        <div>About phyloMAT</div>
-        <button class="btn" id="closeModal">Close</button>
-      </div>
-      <div class="modalBody">
-        phyloMAT is a phylogenomics interface for proteome-scale questions: where motifs/domains concentrate,
-        where they split, and where they appear independently across deep time.<br><br>
-        This page is an interactive explorer shell. Motif search + exported results will be connected as a separate,
-        verifiable analysis engine later.<br><br>
-        <a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">Paper (PMID 15595740)</a><br>
-        <a href="https://w.oodland.com" target="_blank" rel="noopener">w.oodland.com</a>
-      </div>
-    </div>
-  </div>
+    <p><strong>What does motif analysis mean here?</strong><br>
+      Motifs include protein domains, regulatory structures, cellular capabilities,
+      and recurring biological strategies.
+    </p>
 
-  <script src="./tree.js"></script>
+    <p><strong>How is uncertainty handled?</strong><br>
+      Uncertainty is represented using fog and confidence values.
+    </p>
+
+    <p><strong>How is the atlas updated?</strong><br>
+      The atlas exports local context and a structured prompt.
+      A language model proposes an XML patch, which is reviewed and incorporated manually.
+    </p>
+  </section>
+
+  <section>
+    <h2>Links</h2>
+    <ul>
+      <li><a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank">PubMed</a></li>
+      <li><a href="https://w.oodland.com" target="_blank">w.oodland</a></li>
+      <li><a href="https://phylomat.org" target="_blank">phylomat.org</a></li>
+    </ul>
+  </section>
+
+  <script>
+    // Minimal state object
+    const state = {
+      camera: { x: 0, y: 0, zoom: 1 },
+      pinnedNodes: [],
+      activeLayers: ["taxonomy", "clouds"],
+      note: ""
+    };
+
+    function download(filename, text) {
+      const element = document.createElement("a");
+      element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," + encodeURIComponent(text)
+      );
+      element.setAttribute("download", filename);
+      element.style.display = "none";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    }
+
+    function exportState() {
+      const xml =
+`<phyloMATState>
+  <camera x="${state.camera.x}" y="${state.camera.y}" zoom="${state.camera.zoom}" />
+  <layers>${state.activeLayers.join(",")}</layers>
+  <pinned>${state.pinnedNodes.join(",")}</pinned>
+</phyloMATState>`;
+      download("state.xml", xml);
+    }
+
+    function exportPrompt() {
+      const prompt =
+`phyloMAT atlas expansion
+
+Context:
+This is a causal taxonomy atlas organized by constraint and adjacency.
+Time is implicit.
+Uncertainty is represented as fog.
+
+Task:
+Using the local atlas context, propose additional taxa or grouping nodes
+that extend this region.
+
+Rules:
+- keep time implicit
+- express uncertainty using confidence and fog
+- keep labels concise
+- output XML only
+
+Output:
+Return an XML patch containing node and edge additions.`;
+
+      download("prompt.txt", prompt);
+    }
+  </script>
+
 </body>
 </html>

@@ -1,12 +1,9 @@
-/* Fractal Tree Explorer (fast, elegant, non-cartoon)
-   - Canvas pan/zoom
-   - Fly to labels
-   - Curated taxa pinned to canopy
-   - Coverage overlays (demo_struct + rainbow + mito)
-   - White background
-   - Pulse toggle (sticky on/off)
-   - Highlight path from origin to selection + pulsating branch
-   - Rings around selected organism (slow, gently random)
+/* phyloMAT Wow Tree (schematic fractal with scientific semantics)
+   - Always starts full-tree
+   - Sticky clade toggles (domain + euk subclades)
+   - Species: highlight root->taxon path + rings
+   - Time slider: landmark-based reveal (schematic mapping, accurate labels)
+   - Layers: none | demo_struct | rainbow | mito
 */
 
 const canvas = document.getElementById('c');
@@ -28,60 +25,82 @@ const taxaSelect = document.getElementById('taxaSelect');
 const layerSel = document.getElementById('layer');
 const search = document.getElementById('search');
 
-let layerMode = layerSel.value;
+let layerMode = layerSel?.value || "none";
 
-// ---- Pulse + selection state
+// Optional new UI elements (added in index.html patch)
+const modelSelect = document.getElementById('modelSelect');
+const pathogenSelect = document.getElementById('pathogenSelect');
+const exploreTour = document.getElementById('exploreTour');
+const timeSlider = document.getElementById('timeSlider');
+const timeLabel = document.getElementById('timeLabel');
+
+
+// -----------------------------
+// State
+// -----------------------------
 let pulseEnabled = true;
-let selectedLabel = null;           // currently focused label
-let selectedPathKeys = new Set();   // keys along root->selection path
-let parentOf = new Map();           // childKey -> {k: parentKey, _d: depth}
 
-function ptKey(x,y){
-  const q = (n) => Math.round(n * 10) / 10; // quantize
-  return `${q(x)},${q(y)}`;
-}
+// Sticky toggles
+const activeClades = new Set();   // e.g., "Bacteria", "Archaea", "Eukaryota", "Metazoa", "Fungi", "Viridiplantae", "Mammalia"
+let activeTaxonLabel = null;      // label object for selected species (taxon)
+let selectedPathKeys = new Set(); // keys along root->taxon path
 
-function computePathKeys(x,y){
-  const start = ptKey(x,y);
-  const out = new Set();
-  let cur = start;
-  let guard = 0;
-  while(cur && guard++ < 5000){
-    out.add(cur);
-    const rec = parentOf.get(cur);
-    cur = rec ? rec.k : null;
-  }
-  return out;
-}
+// Time reveal (0 oldest .. 5 present)
+let timeLevel = 5;
+let maxDepthAllowed = 11;
 
-// ---- UI wiring
-spinBtn.addEventListener('click', () => {
+// Tree anchors for semantic partitioning
+const anchors = {
+  origin: {x:0,y:0},
+  trunkEnd:{x:0,y:0},
+  forkBase:{x:0,y:0},
+  endB:{x:0,y:0},
+  endA:{x:0,y:0},
+  endE:{x:0,y:0}
+};
+
+// Parent tracking for path reconstruction
+let parentOf = new Map(); // childKey -> {k: parentKey, _d: depth}
+
+
+// -----------------------------
+// UI wiring
+// -----------------------------
+spinBtn?.addEventListener('click', () => {
   const on = header.classList.toggle('spinOn');
   spinBtn.textContent = on ? 'Spin: ON' : 'Spin: OFF';
   spinBtn.setAttribute('aria-pressed', String(on));
 });
 
-aboutBtn.addEventListener('click', () => { modalBack.style.display = 'flex'; });
-closeModalBtn.addEventListener('click', () => { modalBack.style.display = 'none'; });
-modalBack.addEventListener('click', (e) => { if (e.target === modalBack) modalBack.style.display = 'none'; });
+aboutBtn?.addEventListener('click', () => { modalBack.style.display = 'flex'; });
+closeModalBtn?.addEventListener('click', () => { modalBack.style.display = 'none'; });
+modalBack?.addEventListener('click', (e) => { if (e.target === modalBack) modalBack.style.display = 'none'; });
 window.addEventListener('keydown', (e) => { if(e.key === 'Escape') modalBack.style.display = 'none'; });
 
-layerSel.addEventListener('change', () => {
+layerSel?.addEventListener('change', () => {
   layerMode = layerSel.value;
   hudLayer.textContent = `Layer: ${layerMode}`;
 });
 
-document.getElementById('homeBtn').addEventListener('click', () => flyToLabel('life'));
-
-document.getElementById('flySelected').addEventListener('click', () => {
-  const t = TAXA.find(x => x.key === taxaSelect.value);
-  if(t) flyToLabel(t.label);
+// Home: clears highlights and frames full tree
+document.getElementById('homeBtn')?.addEventListener('click', () => {
+  activeClades.clear();
+  activeTaxonLabel = null;
+  selectedPathKeys = new Set();
+  frameFullTree();
+  setHud("life");
 });
 
-// Pulse toggle button (sticky)
+// FlySelected becomes “Highlight species” (keeps whole-tree view)
+document.getElementById('flySelected')?.addEventListener('click', () => {
+  const t = TAXA.find(x => x.key === taxaSelect.value);
+  if(!t) return;
+  highlightTaxonByName(t.label);
+});
+
+// Pulse toggle (sticky)
 const pulseBtn = document.getElementById('pulseSelected');
 if(pulseBtn){
-  // if index.html sets it, keep it; otherwise default to ON
   pulseBtn.setAttribute('aria-pressed', String(true));
   pulseBtn.textContent = 'Pulse: ON';
   pulseBtn.addEventListener('click', () => {
@@ -92,37 +111,100 @@ if(pulseBtn){
   });
 }
 
+// Buttons (domains + subclades) become sticky highlight toggles, NOT fly
+const CLADES = new Set(["Bacteria","Archaea","Eukaryota","Metazoa","Fungi","Viridiplantae","Mammalia","life"]);
 document.querySelectorAll('[data-fly]').forEach(b => {
-  b.addEventListener('click', () => flyToLabel(b.getAttribute('data-fly')));
+  b.addEventListener('click', () => {
+    const name = b.getAttribute('data-fly');
+    if(!name) return;
+
+    if(name === "life"){
+      activeClades.clear();
+      activeTaxonLabel = null;
+      selectedPathKeys = new Set();
+      frameFullTree();
+      setHud("life");
+      return;
+    }
+
+    // sticky toggle
+    if(activeClades.has(name)) activeClades.delete(name);
+    else activeClades.add(name);
+
+    // keep tree framed (no camera jump)
+    setHud(activeClades.size ? Array.from(activeClades).join(", ") : "life");
+  });
 });
 
-search.addEventListener('keydown', (e) => {
+// Search: if matches a clade, toggle; else highlight taxon
+search?.addEventListener('keydown', (e) => {
   if(e.key !== 'Enter') return;
   const q = (search.value || '').trim();
-  if(q) flyToLabel(q);
+  if(!q) return;
+
+  const canon = normalizeCladeQuery(q);
+  if(canon && canon !== "life"){
+    if(activeClades.has(canon)) activeClades.delete(canon);
+    else activeClades.add(canon);
+    setHud(activeClades.size ? Array.from(activeClades).join(", ") : "life");
+    return;
+  }
+
+  highlightTaxonByName(q);
 });
 
-// ---- Taxa (curated)
+// Model/Pathogen dropdowns (optional)
+modelSelect?.addEventListener('change', () => {
+  const v = modelSelect.value;
+  if(v) highlightTaxonByName(v);
+});
+pathogenSelect?.addEventListener('change', () => {
+  const v = pathogenSelect.value;
+  if(v) highlightTaxonByName(v);
+});
+
+// Explore tours (optional)
+exploreTour?.addEventListener('change', () => {
+  runTour(exploreTour.value);
+});
+
+// Time slider (optional)
+timeSlider?.addEventListener('input', () => {
+  timeLevel = Number(timeSlider.value);
+  applyTimeLevel(timeLevel);
+});
+
+
+// -----------------------------
+// Taxa lists (upgrade in place)
+// -----------------------------
 const TAXA = [
-  { key:"hsap", label:"Homo sapiens", clade:"Mammalia",   demoCoverage:0.96 },
-  { key:"mmus", label:"Mus musculus", clade:"Mammalia",   demoCoverage:0.88 },
-  { key:"dmel", label:"Drosophila melanogaster", clade:"Metazoa", demoCoverage:0.62 },
-  { key:"cele", label:"Caenorhabditis elegans", clade:"Metazoa",  demoCoverage:0.55 },
-  { key:"athal", label:"Arabidopsis thaliana", clade:"Viridiplantae", demoCoverage:0.46 },
-  { key:"scer", label:"Saccharomyces cerevisiae", clade:"Fungi", demoCoverage:0.70 },
-  { key:"pfal", label:"Plasmodium falciparum", clade:"Eukaryota", demoCoverage:0.28 },
+  // Model systems
+  { key:"ecoli", label:"Escherichia coli", clade:"Bacteria", demoCoverage:0.40, bucket:"model" },
+  { key:"bsub",  label:"Bacillus subtilis", clade:"Bacteria", demoCoverage:0.34, bucket:"model" },
+  { key:"scer",  label:"Saccharomyces cerevisiae", clade:"Fungi", demoCoverage:0.70, bucket:"model" },
+  { key:"athal", label:"Arabidopsis thaliana", clade:"Viridiplantae", demoCoverage:0.46, bucket:"model" },
+  { key:"cele",  label:"Caenorhabditis elegans", clade:"Metazoa", demoCoverage:0.55, bucket:"model" },
+  { key:"dmel",  label:"Drosophila melanogaster", clade:"Metazoa", demoCoverage:0.62, bucket:"model" },
+  { key:"mmus",  label:"Mus musculus", clade:"Mammalia", demoCoverage:0.88, bucket:"model" },
+  { key:"hsap",  label:"Homo sapiens", clade:"Mammalia", demoCoverage:0.96, bucket:"model" },
 
-  { key:"ecoli", label:"Escherichia coli K-12", clade:"Bacteria", demoCoverage:0.40 },
-  { key:"bsub",  label:"Bacillus subtilis",     clade:"Bacteria", demoCoverage:0.34 },
-  { key:"mtb",   label:"Mycobacterium tuberculosis", clade:"Bacteria", demoCoverage:0.22 },
-  { key:"hpyl",  label:"Helicobacter pylori 26695",  clade:"Bacteria", demoCoverage:0.18 },
-  { key:"tmar",  label:"Thermotoga maritima",   clade:"Bacteria", demoCoverage:0.10 },
+  // Pathogens / notable
+  { key:"mtb",   label:"Mycobacterium tuberculosis", clade:"Bacteria", demoCoverage:0.22, bucket:"pathogen" },
+  { key:"hpyl",  label:"Helicobacter pylori", clade:"Bacteria", demoCoverage:0.18, bucket:"pathogen" },
+  { key:"pfal",  label:"Plasmodium falciparum", clade:"Eukaryota", demoCoverage:0.28, bucket:"pathogen" },
 
-  { key:"mjann", label:"Methanocaldococcus jannaschii", clade:"Archaea", demoCoverage:0.12 },
-  { key:"afulg", label:"Archaeoglobus fulgidus",        clade:"Archaea", demoCoverage:0.14 },
+  // Archaea icons
+  { key:"mjann", label:"Methanocaldococcus jannaschii", clade:"Archaea", demoCoverage:0.12, bucket:"other" },
+  { key:"afulg", label:"Archaeoglobus fulgidus", clade:"Archaea", demoCoverage:0.14, bucket:"other" },
+
+  // Deep branches flavor
+  { key:"tmar",  label:"Thermotoga maritima", clade:"Bacteria", demoCoverage:0.10, bucket:"other" },
 ];
 
+// Populate original curated select (kept)
 (function populateTaxa(){
+  if(!taxaSelect) return;
   taxaSelect.innerHTML = '';
   for(const t of TAXA){
     const opt = document.createElement('option');
@@ -133,8 +215,33 @@ const TAXA = [
   taxaSelect.value = 'hsap';
 })();
 
-// ---- Camera
-let cam = { x: 0, y: -320, z: 0.35 };
+// Populate model/pathogen selects if present
+(function populateBuckets(){
+  if(modelSelect){
+    modelSelect.innerHTML = `<option value="">Select model…</option>`;
+    TAXA.filter(t => t.bucket === "model").forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.label;
+      o.textContent = t.label;
+      modelSelect.appendChild(o);
+    });
+  }
+  if(pathogenSelect){
+    pathogenSelect.innerHTML = `<option value="">Select pathogen…</option>`;
+    TAXA.filter(t => t.bucket === "pathogen").forEach(t => {
+      const o = document.createElement("option");
+      o.value = t.label;
+      o.textContent = t.label;
+      pathogenSelect.appendChild(o);
+    });
+  }
+})();
+
+
+// -----------------------------
+// Camera
+// -----------------------------
+let cam = { x: 0, y: -320, z: 0.30 };
 let targetCam = { ...cam };
 let isDragging = false;
 let last = { x:0, y:0 };
@@ -142,9 +249,12 @@ let last = { x:0, y:0 };
 // pulses
 let pulses = []; // {x,y,t0,soft}
 
-// ---- Data
-let segments = []; // {x1,y1,x2,y2, depth, clade, coverage, k1, k2}
-let labels   = []; // {x,y,text, kind, coverage}
+
+// -----------------------------
+// Tree data
+// -----------------------------
+let segments = []; // {x1,y1,x2,y2, depth, clade, sub, coverage, k1, k2}
+let labels   = []; // {x,y,text, kind, coverage, bucket?}
 
 const cladeCoverage = {
   life: 0.35,
@@ -157,7 +267,10 @@ const cladeCoverage = {
   Mammalia: 0.72,
 };
 
-// ---- Seeded RNG
+
+// -----------------------------
+// Seeded RNG
+// -----------------------------
 let seed = 1337;
 function rand(){
   seed ^= seed << 13; seed |= 0;
@@ -173,67 +286,107 @@ function randn(){
   return Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v);
 }
 
-// ---- Helpers
+
+// -----------------------------
+// Helpers
+// -----------------------------
 function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
 function lerpPt(p,q,t){ return { x: lerp(p.x,q.x,t), y: lerp(p.y,q.y,t) }; }
 
+function ptKey(x,y){
+  const q = (n) => Math.round(n * 10) / 10;
+  return `${q(x)},${q(y)}`;
+}
+
 function addSeg(x1,y1,x2,y2,depth,clade,coverage){
   const k1 = ptKey(x1,y1);
   const k2 = ptKey(x2,y2);
+  segments.push({ x1,y1,x2,y2, depth, clade, sub:null, coverage, k1, k2 });
 
-  segments.push({ x1,y1,x2,y2, depth, clade, coverage, k1, k2 });
-
-  // Prefer the shallowest parent assignment
   const prev = parentOf.get(k2);
   if(!prev || depth < prev._d){
     parentOf.set(k2, { k: k1, _d: depth });
   }
 }
 
-// ---- Build fractal phylogeny-like tree
+function computePathKeys(x,y){
+  const start = ptKey(x,y);
+  const out = new Set();
+  let cur = start;
+  let guard = 0;
+  while(cur && guard++ < 5000){
+    out.add(cur);
+    const rec = parentOf.get(cur);
+    cur = rec ? rec.k : null;
+  }
+  return out;
+}
+
+function setHud(label){
+  hudWhere.textContent = `Tree: ${label || "life"}`;
+}
+
+
+// -----------------------------
+// Build tree + semantic subclades
+// -----------------------------
 function buildTree(){
   segments = [];
   labels = [];
   parentOf = new Map();
   selectedPathKeys = new Set();
-  selectedLabel = null;
+  activeTaxonLabel = null;
 
-  const trunkLen = 900;
-  const origin = { x: 0, y: 320 };
+  // world geometry
+  const trunkLen = 980;
+  const origin = { x: 0, y: 360 };
   const trunkEnd = { x: 0, y: origin.y - trunkLen };
+
+  anchors.origin = origin;
+  anchors.trunkEnd = trunkEnd;
 
   addSeg(origin.x, origin.y, trunkEnd.x, trunkEnd.y, 0, "life", cladeCoverage.life);
 
   const forks = [
-    { name:"Bacteria",  ang: -Math.PI/2 + 0.60, len: 760 },
-    { name:"Archaea",   ang: -Math.PI/2,        len: 640 },
-    { name:"Eukaryota", ang: -Math.PI/2 - 0.60, len: 820 },
+    { name:"Bacteria",  ang: -Math.PI/2 + 0.62, len: 860 },
+    { name:"Archaea",   ang: -Math.PI/2,        len: 760 },
+    { name:"Eukaryota", ang: -Math.PI/2 - 0.62, len: 930 },
   ];
 
   const forkBase = lerpPt(origin, trunkEnd, 0.78);
+  anchors.forkBase = forkBase;
+
+  let endB=null, endA=null, endE=null;
+
   for(const f of forks){
     const end = { x: forkBase.x + Math.cos(f.ang)*f.len, y: forkBase.y + Math.sin(f.ang)*f.len };
     addSeg(forkBase.x, forkBase.y, end.x, end.y, 1, f.name, cladeCoverage[f.name] ?? 0.3);
     branch(end.x, end.y, f.ang, f.len*0.92, 2, f.name);
+    if(f.name==="Bacteria") endB=end;
+    if(f.name==="Archaea") endA=end;
+    if(f.name==="Eukaryota") endE=end;
   }
 
+  anchors.endB = endB;
+  anchors.endA = endA;
+  anchors.endE = endE;
+
+  // High labels (quiet)
   labels.push({ x: trunkEnd.x, y: trunkEnd.y, text:"life", kind:"clade", coverage: cladeCoverage.life });
-  labels.push({ x: forkBase.x + 40, y: forkBase.y - 30, text:"Bacteria", kind:"clade", coverage: cladeCoverage.Bacteria });
-  labels.push({ x: forkBase.x + 10, y: forkBase.y - 60, text:"Archaea", kind:"clade", coverage: cladeCoverage.Archaea });
-  labels.push({ x: forkBase.x - 80, y: forkBase.y - 30, text:"Eukaryota", kind:"clade", coverage: cladeCoverage.Eukaryota });
+  labels.push({ x: forkBase.x + 55, y: forkBase.y - 30, text:"Bacteria", kind:"clade", coverage: cladeCoverage.Bacteria });
+  labels.push({ x: forkBase.x + 15, y: forkBase.y - 62, text:"Archaea", kind:"clade", coverage: cladeCoverage.Archaea });
+  labels.push({ x: forkBase.x - 95, y: forkBase.y - 30, text:"Eukaryota", kind:"clade", coverage: cladeCoverage.Eukaryota });
 
   pinTaxa();
+  tagEukSubclades(); // assigns segments[].sub for Eukaryota into Fungi/Plants/Metazoa/Mammalia regions
 
-  // Default selection = life
-  selectedLabel = labels.find(l => l.text === "life") || null;
-  if(selectedLabel){
-    selectedPathKeys = computePathKeys(selectedLabel.x, selectedLabel.y);
-  }
+  // Start framed, no highlights
+  frameFullTree();
 }
 
 function branch(x, y, ang, len, depth, clade){
-  if(depth > 11 || len < 40) return;
+  if(depth > 11 || len < 42) return;
 
   const spread = 0.62 / (1 + depth*0.12);
   const jitter = 0.10;
@@ -268,6 +421,7 @@ function branch(x, y, ang, len, depth, clade){
 }
 
 function pinTaxa(){
+  // Pick fringe endpoints within each domain canopy
   const candidates = segments
     .filter(s => s.depth >= 7)
     .map(s => ({ x:s.x2, y:s.y2, clade:s.clade, depth:s.depth }));
@@ -284,22 +438,30 @@ function pinTaxa(){
     Eukaryota: { x: -1,  y: -0.1 },
   };
 
-  const pickB = choose("Bacteria", 6, dirs.Bacteria);
-  const pickA = choose("Archaea",  2, dirs.Archaea);
-  const pickE = choose("Eukaryota", 7, dirs.Eukaryota);
+  const pickB = choose("Bacteria", 7, dirs.Bacteria);
+  const pickA = choose("Archaea",  3, dirs.Archaea);
+  const pickE = choose("Eukaryota", 10, dirs.Eukaryota);
 
-  const mapping = {
-    ecoli: pickB[0], bsub: pickB[1], mtb: pickB[2], hpyl: pickB[3], tmar: pickB[4],
-    mjann: pickA[0], afulg: pickA[1],
-    scer: pickE[0], pfal: pickE[1], athal: pickE[2], cele: pickE[3], dmel: pickE[4], mmus: pickE[5], hsap: pickE[6],
+  // Map taxa to points (deterministic ordering)
+  const mapping = new Map();
+  const byClade = {
+    Bacteria: TAXA.filter(t=>t.clade==="Bacteria"),
+    Archaea: TAXA.filter(t=>t.clade==="Archaea"),
+    Eukaryota: TAXA.filter(t=>["Eukaryota","Fungi","Viridiplantae","Metazoa","Mammalia"].includes(t.clade))
   };
 
+  // assign bacteria
+  byClade.Bacteria.forEach((t,i)=> { if(pickB[i]) mapping.set(t.key, pickB[i]); });
+  byClade.Archaea.forEach((t,i)=> { if(pickA[i]) mapping.set(t.key, pickA[i]); });
+  byClade.Eukaryota.forEach((t,i)=> { if(pickE[i]) mapping.set(t.key, pickE[i]); });
+
   for(const t of TAXA){
-    const p = mapping[t.key];
+    const p = mapping.get(t.key);
     if(!p) continue;
-    labels.push({ x:p.x, y:p.y, text:t.label, kind:"taxon", coverage:t.demoCoverage });
+    labels.push({ x:p.x, y:p.y, text:t.label, kind:"taxon", coverage:t.demoCoverage, bucket:t.bucket });
   }
 
+  // Add clade anchors inside euk canopy (these help click + semantics)
   const eukSegs = segments.filter(s => s.clade === "Eukaryota" && s.depth >= 4 && s.depth <= 6);
   if(eukSegs.length){
     labels.push({ x: eukSegs[Math.floor(eukSegs.length*0.20)].x2, y: eukSegs[Math.floor(eukSegs.length*0.20)].y2, text:"Fungi", kind:"clade", coverage: cladeCoverage.Fungi });
@@ -309,7 +471,193 @@ function pinTaxa(){
   }
 }
 
-// ---- Coordinate transforms
+// Partition eukaryota canopy into subclade regions (schematic but consistent)
+function tagEukSubclades(){
+  const base = anchors.forkBase;
+  const endE = anchors.endE;
+  if(!endE) return;
+
+  // direction vector from forkBase->endE defines euk “spine”
+  const vx = endE.x - base.x;
+  const vy = endE.y - base.y;
+  const spineAng = Math.atan2(vy, vx);
+
+  for(const s of segments){
+    if(s.clade !== "Eukaryota") continue;
+
+    // Use angle around spine + position along canopy to assign subclade
+    const dx = s.x2 - endE.x;
+    const dy = s.y2 - endE.y;
+    const ang = Math.atan2(dy, dx);
+
+    // normalize angle difference
+    let d = ang - spineAng;
+    while(d < -Math.PI) d += 2*Math.PI;
+    while(d >  Math.PI) d -= 2*Math.PI;
+
+    // Partition into three broad sectors:
+    // (These are not “true topology,” but they enforce correct containment)
+    // left sector => Viridiplantae, middle => Fungi, right => Metazoa
+    if(d < -0.60) s.sub = "Viridiplantae";
+    else if(d > 0.60) s.sub = "Metazoa";
+    else s.sub = "Fungi";
+
+    // Mammalia subset within Metazoa: deeper + within a narrower band
+    if(s.sub === "Metazoa" && s.depth >= 7){
+      if(d > 0.90) s.sub = "Mammalia";
+    }
+  }
+}
+
+
+// -----------------------------
+// Time slider (landmarks) – accurate labels, schematic mapping
+// -----------------------------
+const TIME_PRESETS = [
+  { label: "Early life (~3.8–3.5 Ga)", depth: 2 },
+  { label: "Great Oxidation (~2.4 Ga)", depth: 4 },
+  { label: "Early eukaryotes (LECA window ~2.0–1.6 Ga)", depth: 6 },
+  { label: "Animals (~800–600 Ma)", depth: 8 },
+  { label: "Mammals (~200 Ma)", depth: 10 },
+  { label: "Present", depth: 11 },
+];
+
+function applyTimeLevel(level){
+  timeLevel = clamp(level, 0, 5);
+  maxDepthAllowed = TIME_PRESETS[timeLevel].depth;
+  if(timeLabel) timeLabel.textContent = TIME_PRESETS[timeLevel].label;
+}
+
+function runTour(name){
+  if(!name) return;
+  // clear current clades but keep current taxon highlight unless tour says otherwise
+  activeClades.clear();
+  activeTaxonLabel = null;
+  selectedPathKeys = new Set();
+
+  if(name === "endosymbiosis"){
+    activeClades.add("Eukaryota");
+    layerMode = "mito";
+    if(layerSel) layerSel.value = "mito";
+    hudLayer.textContent = `Layer: mito`;
+    applyTimeLevel(2); // LECA window
+    setHud("Endosymbiosis");
+  } else if(name === "multicellularity"){
+    activeClades.add("Eukaryota");
+    activeClades.add("Metazoa");
+    activeClades.add("Fungi");
+    activeClades.add("Viridiplantae");
+    layerMode = "rainbow";
+    if(layerSel) layerSel.value = "rainbow";
+    hudLayer.textContent = `Layer: rainbow`;
+    applyTimeLevel(3);
+    setHud("Multicellularity");
+  } else if(name === "models"){
+    layerMode = "none";
+    if(layerSel) layerSel.value = "none";
+    hudLayer.textContent = `Layer: none`;
+    applyTimeLevel(5);
+    // pulse through a few
+    highlightTaxonByName("Escherichia coli");
+    setTimeout(()=>highlightTaxonByName("Saccharomyces cerevisiae"), 700);
+    setTimeout(()=>highlightTaxonByName("Drosophila melanogaster"), 1400);
+    setTimeout(()=>highlightTaxonByName("Mus musculus"), 2100);
+    setTimeout(()=>highlightTaxonByName("Homo sapiens"), 2800);
+    setHud("Model systems");
+  } else if(name === "pathogens"){
+    layerMode = "demo_struct";
+    if(layerSel) layerSel.value = "demo_struct";
+    hudLayer.textContent = `Layer: demo_struct`;
+    applyTimeLevel(5);
+    highlightTaxonByName("Mycobacterium tuberculosis");
+    setTimeout(()=>highlightTaxonByName("Helicobacter pylori"), 900);
+    setTimeout(()=>highlightTaxonByName("Plasmodium falciparum"), 1800);
+    setHud("Pathogens");
+  } else if(name === "domains"){
+    activeClades.add("Bacteria");
+    activeClades.add("Archaea");
+    activeClades.add("Eukaryota");
+    layerMode = "rainbow";
+    if(layerSel) layerSel.value = "rainbow";
+    hudLayer.textContent = `Layer: rainbow`;
+    applyTimeLevel(5);
+    setHud("Domains");
+  }
+
+  // keep camera framed
+  frameFullTree();
+}
+
+
+// -----------------------------
+// Highlighting logic
+// -----------------------------
+function normalizeCladeQuery(q){
+  const s = q.trim().toLowerCase();
+  const map = {
+    bacteria:"Bacteria",
+    archaea:"Archaea",
+    eukaryota:"Eukaryota",
+    eukarya:"Eukaryota",
+    animals:"Metazoa",
+    metazoa:"Metazoa",
+    fungi:"Fungi",
+    plants:"Viridiplantae",
+    viridiplantae:"Viridiplantae",
+    mammals:"Mammalia",
+    mammalia:"Mammalia",
+    life:"life"
+  };
+  return map[s] || null;
+}
+
+function highlightTaxonByName(name){
+  let L = labels.find(x => x.kind === "taxon" && x.text.toLowerCase() === name.toLowerCase());
+  if(!L){
+    const ql = name.toLowerCase();
+    L = labels.find(x => x.kind === "taxon" && x.text.toLowerCase().includes(ql));
+  }
+  if(!L){
+    // no match; small pulse at center
+    if(pulseEnabled) pulseAt(cam.x, cam.y, false);
+    return;
+  }
+
+  activeTaxonLabel = L;
+  selectedPathKeys = computePathKeys(L.x, L.y);
+
+  // also automatically light the correct clade stack for comprehension
+  const inferred = inferCladeStackForTaxon(L);
+  inferred.forEach(c => activeClades.add(c));
+
+  setHud(L.text);
+  if(pulseEnabled) pulseAt(L.x, L.y, true);
+}
+
+// ensures mammals ⊂ animals ⊂ eukaryota always reads right
+function inferCladeStackForTaxon(L){
+  const out = [];
+  // Find by nearest segments? We use taxon string heuristics + existing canonical mapping from TAXA
+  const t = TAXA.find(x => x.label === L.text);
+  if(!t) return out;
+
+  if(t.clade === "Bacteria") out.push("Bacteria");
+  else if(t.clade === "Archaea") out.push("Archaea");
+  else {
+    out.push("Eukaryota");
+    if(t.clade === "Fungi") out.push("Fungi");
+    if(t.clade === "Viridiplantae") out.push("Viridiplantae");
+    if(t.clade === "Metazoa") out.push("Metazoa");
+    if(t.clade === "Mammalia") { out.push("Metazoa"); out.push("Mammalia"); }
+    if(t.clade === "Eukaryota") out.push("Eukaryota");
+  }
+  return out;
+}
+
+
+// -----------------------------
+// Canvas coordinate transforms
+// -----------------------------
 function worldToScreen(x,y){
   const r = viewEl.getBoundingClientRect();
   const cx = r.width/2, cy = r.height/2;
@@ -336,7 +684,10 @@ function nearestLabel(wx, wy){
   return (best && bestD < thresh*thresh) ? best : null;
 }
 
-// ---- Interactions
+
+// -----------------------------
+// Interactions: pan/zoom + dblclick highlight
+// -----------------------------
 viewEl.addEventListener('mousedown', (e) => {
   isDragging = true;
   last.x = e.clientX; last.y = e.clientY;
@@ -355,17 +706,18 @@ viewEl.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = viewEl.getBoundingClientRect();
   const mx = e.clientX - r.left;
-  const my = e.clientY - r.top;
+  const my = e.clientX; // not used for y calc? fix:
+  const my2 = e.clientY - r.top;
 
   const zoomFactor = Math.exp((-e.deltaY) * 0.0012);
 
   const wxBefore = screenToWorldX(mx);
-  const wyBefore = screenToWorldY(my);
+  const wyBefore = screenToWorldY(my2);
 
   targetCam.z = clamp(targetCam.z * zoomFactor, 0.08, 2.6);
 
   const wxAfter = screenToWorldX(mx);
-  const wyAfter = screenToWorldY(my);
+  const wyAfter = screenToWorldY(my2);
 
   targetCam.x += (wxBefore - wxAfter);
   targetCam.y += (wyBefore - wyAfter);
@@ -378,56 +730,35 @@ viewEl.addEventListener('dblclick', (e) => {
   const wx = screenToWorldX(mx);
   const wy = screenToWorldY(my);
   const n = nearestLabel(wx, wy);
-  if(n) flyToLabel(n.text);
-  else pulseAt(wx, wy, false);
+  if(n){
+    if(n.kind === "taxon") highlightTaxonByName(n.text);
+    else {
+      // clade toggle on double click clade label
+      const canon = normalizeCladeQuery(n.text);
+      if(canon && canon !== "life"){
+        if(activeClades.has(canon)) activeClades.delete(canon);
+        else activeClades.add(canon);
+        setHud(activeClades.size ? Array.from(activeClades).join(", ") : "life");
+      }
+    }
+  } else {
+    if(pulseEnabled) pulseAt(wx, wy, false);
+  }
 });
 
-// ---- Fly + pulse
-function startFly(x,y,z,name){
-  targetCam.x = x;
-  targetCam.y = y;
-  targetCam.z = z;
-  hudWhere.textContent = `Tree: ${name}`;
-  if(pulseEnabled) pulseAt(x,y,true);
-}
 
-function flyToLabel(name){
-  const q = (name || '').trim();
-  if(!q) return;
-
-  if(q.toLowerCase() === 'life'){
-    selectedLabel = labels.find(l => l.text === "life") || null;
-    selectedPathKeys = selectedLabel ? computePathKeys(selectedLabel.x, selectedLabel.y) : new Set();
-    startFly(0, -320, 0.35, 'life');
-    return;
-  }
-
-  let L = labels.find(x => x.text.toLowerCase() === q.toLowerCase());
-  if(!L){
-    const ql = q.toLowerCase();
-    L = labels.find(x => x.text.toLowerCase().includes(ql));
-  }
-  if(!L){
-    const map = { animals:'Metazoa', plants:'Viridiplantae', mammals:'Mammalia' };
-    const alt = map[q.toLowerCase()];
-    if(alt) return flyToLabel(alt);
-    if(pulseEnabled) pulseAt(cam.x, cam.y, false);
-    return;
-  }
-
-  selectedLabel = L;
-  selectedPathKeys = computePathKeys(L.x, L.y);
-
-  const z = (L.kind === 'taxon') ? 1.4 : 0.85;
-  startFly(L.x, L.y, z, L.text);
-}
-
+// -----------------------------
+// Pulses
+// -----------------------------
 function pulseAt(x,y,soft){
   pulses.push({ x, y, t0: performance.now(), soft });
   if(pulses.length > 10) pulses.shift();
 }
 
-// ---- Color helpers for overlay
+
+// -----------------------------
+// Color helpers
+// -----------------------------
 function getCss(name){
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -443,16 +774,20 @@ function lerpColor(a,b,t){
   return `rgb(${r},${g},${b2})`;
 }
 function colorForCoverage(v){
+  // uses CSS vars you already have (hot/warn/good)
   if(v <= 0.5){
     const t = v/0.5;
-    return lerpColor(hexToRgb(getCss('--hot')), hexToRgb(getCss('--warn')), t);
+    return lerpColor(hexToRgb(getCss('--hot') || "#d45a5a"), hexToRgb(getCss('--warn') || "#d7a23a"), t);
   }else{
     const t = (v-0.5)/0.5;
-    return lerpColor(hexToRgb(getCss('--warn')), hexToRgb(getCss('--good')), t);
+    return lerpColor(hexToRgb(getCss('--warn') || "#d7a23a"), hexToRgb(getCss('--good') || "#2fa86f"), t);
   }
 }
 
-// ---- Resize
+
+// -----------------------------
+// Resize + framing full tree
+// -----------------------------
 function resize(){
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   const r = viewEl.getBoundingClientRect();
@@ -460,9 +795,50 @@ function resize(){
   canvas.height = Math.floor(r.height * dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); frameFullTree(true); });
 
-// ---- Render loop
+function computeBounds(){
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for(const s of segments){
+    minX = Math.min(minX, s.x1, s.x2);
+    minY = Math.min(minY, s.y1, s.y2);
+    maxX = Math.max(maxX, s.x1, s.x2);
+    maxY = Math.max(maxY, s.y1, s.y2);
+  }
+  return {minX,minY,maxX,maxY};
+}
+
+function frameFullTree(immediate=false){
+  if(!segments.length) return;
+  const b = computeBounds();
+  const r = viewEl.getBoundingClientRect();
+
+  const pad = 120; // generous breathing room
+  const w = (b.maxX - b.minX) + pad*2;
+  const h = (b.maxY - b.minY) + pad*2;
+
+  const cx = (b.minX + b.maxX)/2;
+  const cy = (b.minY + b.maxY)/2;
+
+  // choose scale so full bounds fit viewport
+  const sx = r.width / w;
+  const sy = r.height / h;
+  const z = Math.min(sx, sy);
+
+  if(immediate){
+    cam = { x: cx, y: cy, z };
+    targetCam = { ...cam };
+  } else {
+    targetCam.x = cx;
+    targetCam.y = cy;
+    targetCam.z = z;
+  }
+}
+
+
+// -----------------------------
+// Render loop
+// -----------------------------
 function draw(){
   const r = viewEl.getBoundingClientRect();
 
@@ -472,59 +848,80 @@ function draw(){
   cam.z = lerp(cam.z, targetCam.z, 0.08);
   hudZoom.textContent = `Zoom: ${cam.z.toFixed(2)}`;
 
-  // background: WHITE
+  // background (white)
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // if pulse disabled, no ambient ripples
-  if(!pulseEnabled) pulses = [];
+  // time mask
+  const depthCut = maxDepthAllowed;
 
-  const now = performance.now();
-  const breathe = 0.55 + 0.45*Math.sin(now*0.0012); // slow
-  const pathAlpha = 0.28 + 0.22*breathe;
-
+  // base contrast scales with zoom (subtle)
   const baseAlpha = clamp(0.20 + 0.10*Math.min(1, cam.z/1.2), 0.18, 0.32);
   const baseStroke = `rgba(20,28,40,${baseAlpha})`;
-  
-  // branches
+
+  const now = performance.now();
+  const breathe = 0.55 + 0.45*Math.sin(now*0.0012);
+
+  // Draw branches with weighted highlight
   for(const s of segments){
+    if(s.depth > depthCut) continue;
+
     const p1 = worldToScreen(s.x1, s.y1);
     const p2 = worldToScreen(s.x2, s.y2);
 
-    // cull
-    if((p1.x < -60 && p2.x < -60) || (p1.x > r.width+60 && p2.x > r.width+60) ||
-       (p1.y < -60 && p2.y < -60) || (p1.y > r.height+60 && p2.y > r.height+60)) continue;
+    if((p1.x < -80 && p2.x < -80) || (p1.x > r.width+80 && p2.x > r.width+80) ||
+       (p1.y < -80 && p2.y < -80) || (p1.y > r.height+80 && p2.y > r.height+80)) continue;
 
-    const baseW = Math.max(0.6, 3.0 - s.depth*0.20);
+    // base width
+    const baseW = Math.max(0.55, 3.0 - s.depth*0.20);
     let w = baseW * Math.pow(1/cam.z, 0.12);
 
-    const onPath = (selectedPathKeys && (selectedPathKeys.has(s.k2) || selectedPathKeys.has(s.k1)));
-
-    // default: soft graphite on white
+    // layer color
     let stroke = baseStroke;
 
-    // layers
     if(layerMode === 'demo_struct'){
       const cov = (s.coverage ?? 0.3);
       const col = colorForCoverage(cov);
-      stroke = col.replace('rgb','rgba').replace(')',`,${0.18})`);
+      stroke = col.replace('rgb','rgba').replace(')',`,${0.22})`);
     } else if(layerMode === 'rainbow'){
       const baseHue =
         (s.clade === 'Eukaryota') ? 120 :
         (s.clade === 'Bacteria')  ? 210 :
         (s.clade === 'Archaea')   ? 170 : 260;
       const hue = (baseHue + s.depth*16) % 360;
-      stroke = `hsla(${hue}, 45%, 45%, 0.16)`; // muted rainbow
+      stroke = `hsla(${hue}, 45%, 45%, 0.20)`;
     } else if(layerMode === 'mito'){
-      // schematic landmark: eukaryote canopy gets a green wash
+      // euk branches get subtle green wash
       const isEuk = (s.clade === 'Eukaryota');
-      stroke = isEuk ? 'rgba(47,168,111,0.18)' : baseStroke;
+      stroke = isEuk ? 'rgba(47,168,111,0.24)' : baseStroke;
     }
 
-    // selection path override (pulsing)
-    if(onPath){
-      stroke = `rgba(47,107,255,${pathAlpha})`;
-      w *= (1.35 + 0.25*breathe);
+    // highlight weighting
+    let weight = 0;
+
+    // domain clades
+    if(activeClades.has(s.clade)) weight += 1;
+
+    // euk subclades (schematic region tags)
+    if(s.clade === "Eukaryota"){
+      if(activeClades.has("Metazoa") && (s.sub === "Metazoa" || s.sub === "Mammalia")) weight += 1;
+      if(activeClades.has("Mammalia") && (s.sub === "Mammalia")) weight += 1;
+      if(activeClades.has("Fungi") && (s.sub === "Fungi")) weight += 1;
+      if(activeClades.has("Viridiplantae") && (s.sub === "Viridiplantae")) weight += 1;
+      if(activeClades.has("Eukaryota")) weight += 0.4; // keep euk canopy softly lit
+    }
+
+    // trunk-to-split path should light when any clade is active
+    if(activeClades.size && s.clade === "life") weight += 0.8;
+
+    // selected taxon path overrides
+    const onPath = activeTaxonLabel && (selectedPathKeys.has(s.k2) || selectedPathKeys.has(s.k1));
+    if(onPath) weight += 2.0;
+
+    if(weight > 0){
+      const a = clamp(0.18 + 0.10*weight + 0.08*breathe*(onPath?1:0), 0.22, 0.85);
+      stroke = `rgba(47,107,255,${a})`;
+      w *= (1.0 + 0.35*weight + (onPath ? 0.18*breathe : 0));
     }
 
     ctx.beginPath();
@@ -536,48 +933,41 @@ function draw(){
     ctx.stroke();
   }
 
-  // labels (dark on white)
+  // Labels (only when zoomed in enough; always readable)
   for(const L of labels){
     const p = worldToScreen(L.x, L.y);
     if(p.x < -120 || p.x > r.width+120 || p.y < -120 || p.y > r.height+120) continue;
 
     const isTaxon = (L.kind === 'taxon');
-    const show = isTaxon ? (cam.z > 0.35) : (cam.z > 0.20);
+    const show = isTaxon ? (cam.z > 0.22) : (cam.z > 0.16);
     if(!show) continue;
 
+    // fade in with zoom
     const alpha = isTaxon
-      ? clamp((cam.z - 0.25)/1.2, 0.0, 1.0)
-      : clamp((cam.z - 0.12)/0.9, 0.0, 0.7);
+      ? clamp((cam.z - 0.16)/1.0, 0.0, 1.0)
+      : clamp((cam.z - 0.10)/0.8, 0.0, 0.65);
 
     // dot
     ctx.beginPath();
     ctx.arc(p.x, p.y, isTaxon ? 2.6 : 2.0, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(10,14,18,${0.40*alpha})`;
+    ctx.fillStyle = `rgba(10,14,18,${0.45*alpha})`;
     ctx.fill();
 
     // text
-    ctx.font = `12px ${getCss('--mono')}`;
+    ctx.font = `12px ${getCss('--mono') || 'ui-monospace'}`;
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = `rgba(10,14,18,${0.62*alpha})`;
+    ctx.fillStyle = `rgba(10,14,18,${0.65*alpha})`;
     ctx.fillText(L.text, p.x + 8, p.y);
-
-    // coverage tick for taxa in demo_struct
-    if(layerMode === 'demo_struct' && isTaxon){
-      const cov = clamp(L.coverage ?? 0.3, 0, 1);
-      const col = colorForCoverage(cov);
-      const wtxt = ctx.measureText(L.text).width;
-      ctx.fillStyle = col;
-      ctx.globalAlpha = 0.7 * alpha;
-      ctx.fillRect(p.x + 8 + wtxt + 8, p.y - 4, 10, 8);
-      ctx.globalAlpha = 1;
-    }
   }
 
-  // pulses (kept subtle on white)
-  pulses = pulses.filter(P => now - P.t0 < 1100);
+  // Pulses
+  if(!pulseEnabled) pulses = [];
+
+  const now2 = performance.now();
+  pulses = pulses.filter(P => now2 - P.t0 < 1100);
   for(const P of pulses){
     const p = worldToScreen(P.x, P.y);
-    const t = (now - P.t0) / 1100;
+    const t = (now2 - P.t0) / 1100;
     const k = P.soft ? 0.7 : 1.0;
     const rad = (18 + 120*t) * k;
     const a = (1 - t);
@@ -587,22 +977,16 @@ function draw(){
     ctx.lineWidth = 2;
     ctx.strokeStyle = `rgba(47,107,255,${0.18*a})`;
     ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, rad*0.45, 0, Math.PI*2);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = `rgba(47,107,255,${0.14*a})`;
-    ctx.stroke();
   }
 
   // Selected organism rings (slow, gently irregular)
-  if(selectedLabel && selectedLabel.kind === 'taxon' && pulseEnabled){
-    const p = worldToScreen(selectedLabel.x, selectedLabel.y);
-    const base = 16 + 10*Math.sin(now*0.00037 + 1.7);
-    const drift = 0.5 + 0.5*Math.sin(now*0.00023 + 3.1);
+  if(activeTaxonLabel && pulseEnabled){
+    const p = worldToScreen(activeTaxonLabel.x, activeTaxonLabel.y);
+    const base = 16 + 10*Math.sin(now2*0.00037 + 1.7);
+    const drift = 0.5 + 0.5*Math.sin(now2*0.00023 + 3.1);
 
     for(let i=0;i<3;i++){
-      const tt = now*0.00015 + i*1.9;
+      const tt = now2*0.00015 + i*1.9;
       const rad = base + i*22 + 14*Math.sin(tt + i*0.6)*drift;
       const a = 0.10 + 0.06*Math.sin(tt*1.7 + i);
 
@@ -617,15 +1001,34 @@ function draw(){
   requestAnimationFrame(draw);
 }
 
-// ---- init
+
+// -----------------------------
+// Init
+// -----------------------------
+function applyDefaultUI(){
+  hudLayer.textContent = `Layer: ${layerMode}`;
+  setHud("life");
+
+  // If time slider exists, initialize label and depth
+  if(timeSlider){
+    timeSlider.min = "0";
+    timeSlider.max = "5";
+    timeSlider.step = "1";
+    timeSlider.value = String(timeLevel);
+    applyTimeLevel(timeLevel);
+  } else {
+    maxDepthAllowed = 11;
+  }
+
+  // If explore tours exists
+  if(exploreTour){
+    // no auto-run
+    exploreTour.value = "";
+  }
+}
+
 resize();
-hudLayer.textContent = `Layer: ${layerMode}`;
-hudWhere.textContent = `Tree: life`;
-
-// Build + start at home
+applyDefaultUI();
 buildTree();
-selectedLabel = labels.find(l => l.text === "life") || null;
-selectedPathKeys = selectedLabel ? computePathKeys(selectedLabel.x, selectedLabel.y) : new Set();
-if(pulseEnabled) pulseAt(0, -320, true);
-
+frameFullTree(true);
 draw();

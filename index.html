@@ -1,551 +1,791 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Phylomat</title>
-  <meta name="description" content="Phylomat — motif analysis tool for phylogenomics." />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>phyloMAT</title>
   <style>
+    /* ==========================
+       2004 boxy UI: winclassic-ish
+       ========================== */
     :root{
-      --paper:#ffffff;
-      --ink:#0f172a;
-      --muted:#475569;
-      --line:#e2e8f0;
-      --soft:#f8fafc;
+      --bg: #c0c0c0;
+      --panel: #d6d6d6;
+      --paper: #ffffff;
+      --ink: #000000;
 
-      --accent:#16a34a;   /* green */
-      --ember:#ea580c;    /* orange */
-      --dark:#111827;
+      --bevelLight: #ffffff;
+      --bevelMid:   #b5b5b5;
+      --bevelDark:  #808080;
+      --bevelDarker:#404040;
 
-      --radius:16px;
-      --shadow: 0 10px 28px rgba(2,6,23,.08);
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --accent: #0033cc; /* classic link blue */
+      --ok: #007a3d;
+      --warn: #8a6d00;
+      --muted: #6b6b6b;
+
+      --mono: "Courier New", Courier, monospace;
+      --sans: Tahoma, Verdana, Arial, sans-serif;
     }
 
     *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
-      background:var(--paper);
-      color:var(--ink);
-      font-family:var(--sans);
-      line-height:1.45;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 13px;
     }
 
+    /* Old-school centered fixed width */
     .wrap{
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 28px 18px 60px;
+      width: 980px;
+      margin: 18px auto;
+      padding: 10px;
+      background: var(--panel);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelDarker);
     }
 
-    header{
+    /* Header */
+    .hdr{
       display:flex;
+      gap:12px;
       align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      padding: 8px 0 18px;
+      padding: 10px;
+      background: var(--panel);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelDarker);
     }
 
     .brand{
       display:flex;
-      align-items:center;
-      gap:14px;
-      min-width: 260px;
+      flex-direction:column;
+      gap:2px;
     }
-
-    .mark{
-      width:54px;
-      height:54px;
-      flex:0 0 auto;
-    }
-
     .brand h1{
       margin:0;
-      font-size: 28px;
-      letter-spacing: .2px;
-      font-weight: 720;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+      font-family: var(--sans);
     }
-    .tag{
-      margin:2px 0 0;
-      color:var(--muted);
-      font-size: 13.5px;
-    }
-
-    .pillrow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .pill{
+    .brand small{
+      color: #222;
       font-family: var(--mono);
+    }
+
+    .hdr .spacer{ flex:1; }
+
+    /* Beveled “button” look */
+    .btn{
+      font-family: var(--sans);
       font-size: 12px;
-      padding: 8px 10px;
-      border:1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: var(--soft);
-      text-decoration:none;
-      white-space:nowrap;
+      padding: 6px 10px;
+      background: #e6e6e6;
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelDarker);
+      cursor: pointer;
+      user-select:none;
     }
-    .pill:hover{ border-color:#cbd5e1; color:#0f172a; }
+    .btn:active{
+      box-shadow:
+        inset -1px -1px 0 var(--bevelLight),
+        inset 1px 1px 0 var(--bevelDarker);
+      transform: translate(1px,1px);
+    }
+    .btn[aria-pressed="true"]{
+      background:#dfe8ff;
+      border-color:#3a57b8;
+    }
 
-    .hero{
-      display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:18px;
+    /* Layout table vibe */
+    .grid{
       margin-top: 10px;
-      align-items:stretch;
-    }
-
-    @media (max-width: 860px){
-      .hero{ grid-template-columns: 1fr; }
-      .pillrow{ justify-content:flex-start; }
-    }
-
-    .card{
-      border:1px solid var(--line);
-      border-radius: var(--radius);
-      background: #fff;
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-
-    .card .hd{
-      padding: 14px 16px;
-      border-bottom:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      background: linear-gradient(180deg, #ffffff, #fbfdff);
-    }
-
-    .card .hd .title{
-      font-weight: 650;
-      letter-spacing: .2px;
-    }
-    .sub{
-      color:var(--muted);
-      font-size: 13px;
-      margin-top: 2px;
-    }
-
-    .card .bd{ padding: 16px; }
-
-    .grid2{
       display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    @media (max-width: 560px){
-      .grid2{ grid-template-columns:1fr; }
+      grid-template-columns: 320px 1fr;
+      gap:10px;
     }
 
+    .panel{
+      background: var(--panel);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelDarker);
+      padding: 10px;
+    }
+
+    .panel h2{
+      margin:0 0 8px 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color:#111;
+    }
+
+    .field{
+      margin-bottom: 10px;
+    }
     label{
       display:block;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom:6px;
+      margin-bottom: 4px;
+      font-family: var(--mono);
+      color:#111;
     }
-
-    input, select{
+    select, input[type="text"], textarea{
       width:100%;
-      padding: 11px 12px;
-      border-radius: 12px;
-      border:1px solid #cbd5e1;
-      font-size: 14px;
-      outline:none;
-      background: #fff;
-    }
-    input:focus, select:focus{
-      border-color: #94a3b8;
-      box-shadow: 0 0 0 4px rgba(148,163,184,.25);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 6px 7px;
+      border: 2px solid var(--bevelDark);
+      background: var(--paper);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelMid);
     }
 
-    .actions{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      margin-top: 12px;
-      flex-wrap:wrap;
+    textarea{
+      resize: vertical;
+      min-height: 86px;
     }
-    button{
-      border:0;
-      border-radius: 12px;
-      padding: 11px 14px;
-      font-weight: 650;
-      cursor:pointer;
-    }
-    .run{
-      background: var(--dark);
-      color: #fff;
-    }
-    .run:hover{ filter: brightness(1.07); }
 
-    .ghost{
-      background: #fff;
-      border:1px solid var(--line);
-      color: var(--ink);
-    }
-    .ghost:hover{ border-color:#cbd5e1; }
-
-    .note{
-      font-size: 12.5px;
+    .disabledBox{
+      background: #efefef;
       color: var(--muted);
-      margin-top: 10px;
+      border: 2px dashed #9b9b9b;
+      padding: 10px;
+      font-family: var(--mono);
+      line-height: 1.35;
     }
-    .note strong{ color: var(--ink); }
 
-    /* Pipeline */
-    .pipeline{
-      display:grid;
-      gap:10px;
+    .statusline{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px;
+      background: #f7f7f7;
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelMid);
     }
-    .step{
-      border:1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px 12px;
+    .statusline b{ color: var(--accent); }
+
+    /* Tree viewport */
+    .viewport{
+      background: var(--paper);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelMid);
+      height: 460px;
+      overflow:hidden;
+      position: relative;
+    }
+
+    .viewport .caption{
+      position:absolute;
+      left: 8px;
+      bottom: 8px;
+      padding: 4px 6px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #999;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    /* “Output” box */
+    .output{
+      margin-top: 10px;
+      background: var(--paper);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelMid);
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      height: 160px;
+      overflow:auto;
+      white-space: pre-wrap;
+      line-height: 1.35;
+    }
+
+    /* Logo */
+    .logoBox{
+      width: 64px;
+      height: 64px;
+      background: var(--paper);
+      border: 2px solid var(--bevelDark);
+      box-shadow:
+        inset 1px 1px 0 var(--bevelLight),
+        inset -1px -1px 0 var(--bevelMid);
+      display:grid;
+      place-items:center;
+      flex: 0 0 auto;
+    }
+    .logo{
+      width: 46px;
+      height: 46px;
+      transform-origin: 50% 50%;
+    }
+    .spinOn .logo{
+      animation: spin 1.1s linear infinite; /* classic fast-ish spin */
+    }
+    @keyframes spin{
+      from{ transform: rotate(0deg); }
+      to{ transform: rotate(360deg); }
+    }
+
+    /* SVG tree styling */
+    svg{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    .edge{
+      stroke:#000;
+      stroke-width:2;
+      fill:none;
+      shape-rendering:crispEdges;
+    }
+    .node{
+      fill:#fff;
+      stroke:#000;
+      stroke-width:2;
+    }
+    .label{
+      font-family: var(--mono);
+      font-size: 12px;
+      fill:#000;
+    }
+    .cladeLabel{
+      font-family: var(--mono);
+      font-size: 12px;
+      fill:#000;
+      opacity:0.85;
+    }
+    .hot{
+      fill:#fff5b5;
+    }
+    .highlight{
+      stroke:#0033cc;
+      stroke-width:3;
+    }
+
+    /* Footer */
+    .ftr{
+      margin-top: 10px;
       display:flex;
       justify-content:space-between;
       align-items:center;
-      background:#fff;
-    }
-    .step .k{
       font-family: var(--mono);
+      color:#222;
       font-size: 12px;
-      color: var(--muted);
     }
-    .step .v{
-      font-size: 13.5px;
-      font-weight: 620;
-    }
-    .step.active{
-      border-color: rgba(22,163,74,.45);
-      box-shadow: 0 0 0 4px rgba(22,163,74,.10);
-      background: linear-gradient(180deg, #ffffff, #f3fbf6);
-    }
+    .ftr a{ color: var(--accent); text-decoration: none; }
+    .ftr a:hover{ text-decoration: underline; }
+
+    /* Tiny “badge” */
     .badge{
+      display:inline-block;
+      padding: 2px 6px;
+      border: 1px solid #777;
+      background:#f4f4f4;
       font-family: var(--mono);
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      background: var(--soft);
     }
-    .badge.on{
-      border-color: rgba(234,88,12,.35);
-      background: rgba(234,88,12,.08);
-      color: #9a3412;
-    }
-
-    pre{
-      margin:0;
-      padding: 12px;
-      border-radius: 14px;
-      border:1px solid var(--line);
-      background: #0b1220;
-      color: #e2e8f0;
-      overflow:auto;
-      font-family: var(--mono);
-      font-size: 12px;
-      line-height:1.5;
-    }
-
-    footer{
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: 12.5px;
-    }
-    footer a{ color: inherit; }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand">
-        <!-- Inline SVG mark (editable in Illustrator later) -->
-        <svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" aria-label="Phylomat mark">
-          <g stroke="#1f1f1f" stroke-width="16" stroke-linecap="round">
-            <line x1="0" y1="0" x2="0" y2="-52"/>
-            <line x1="0" y1="0" x2="36.8" y2="-36.8"/>
-            <line x1="0" y1="0" x2="52" y2="0"/>
-            <line x1="0" y1="0" x2="36.8" y2="36.8"/>
-            <line x1="0" y1="0" x2="0" y2="52"/>
-            <line x1="0" y1="0" x2="-36.8" y2="36.8"/>
-            <line x1="0" y1="0" x2="-52" y2="0"/>
-            <line x1="0" y1="0" x2="-36.8" y2="-36.8"/>
-          </g>
-          <circle cx="0" cy="0" r="22" fill="#7bc96f"/>
-          <g fill="#ea580c">
-            <circle cx="0" cy="-78" r="12"/>
-            <circle cx="55.2" cy="-55.2" r="12"/>
-            <circle cx="78" cy="0" r="12"/>
-            <circle cx="55.2" cy="55.2" r="12"/>
-            <circle cx="0" cy="78" r="12"/>
-            <circle cx="-55.2" cy="55.2" r="12"/>
-            <circle cx="-78" cy="0" r="12"/>
-            <circle cx="-55.2" cy="-55.2" r="12"/>
-          </g>
+  <div class="wrap" id="app">
+    <div class="hdr" id="header">
+      <div class="logoBox" title="phyloMAT logo (click Spin)">
+        <!-- Placeholder vector logo: symmetric “pinwheel” motif.
+             Swap this SVG with your final Illustrator-exported logo later. -->
+        <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M50 8
+                   C64 18, 70 30, 70 38
+                   C70 48, 61 53, 54 56
+                   C68 52, 80 54, 90 66
+                   C78 76, 66 77, 56 72
+                   C60 79, 58 90, 46 96
+                   C36 86, 34 74, 38 66
+                   C30 72, 18 70, 10 58
+                   C22 48, 34 48, 44 52
+                   C37 48, 30 42, 30 32
+                   C30 22, 36 14, 50 8Z"
+                fill="#fff" stroke="#000" stroke-width="6" stroke-linejoin="round"/>
+          <circle cx="50" cy="50" r="9" fill="#fff" stroke="#000" stroke-width="6"/>
         </svg>
+      </div>
 
-        <div>
-          <h1>Phylomat</h1>
-          <div class="tag">motif analysis tool for phylogenomics</div>
+      <div class="brand">
+        <h1>phyloMAT</h1>
+        <small>motif analysis tool for phylogenomics</small>
+      </div>
+
+      <div class="spacer"></div>
+
+      <button class="btn" id="spinBtn" aria-pressed="true" title="Toggle the classic spinning logo">
+        Spin: ON
+      </button>
+      <button class="btn" id="resetBtn" title="Reset tree view to full Tree of Life">
+        Reset View
+      </button>
+    </div>
+
+    <div class="grid">
+      <!-- LEFT: Controls -->
+      <div class="panel">
+        <h2>Controls</h2>
+
+        <div class="field">
+          <label for="proteome">Predicted proteome (circa 2004)</label>
+          <select id="proteome">
+            <optgroup label="Bacteria">
+              <option value="ecoli">Escherichia coli K-12</option>
+              <option value="bsub">Bacillus subtilis</option>
+              <option value="mtb">Mycobacterium tuberculosis</option>
+              <option value="hpyl">Helicobacter pylori 26695</option>
+              <option value="tmar">Thermotoga maritima</option>
+            </optgroup>
+            <optgroup label="Archaea">
+              <option value="mjann">Methanocaldococcus jannaschii</option>
+              <option value="afulg">Archaeoglobus fulgidus</option>
+            </optgroup>
+            <optgroup label="Eukaryotes">
+              <option value="scer">Saccharomyces cerevisiae</option>
+              <option value="pfal">Plasmodium falciparum</option>
+              <option value="cele">Caenorhabditis elegans</option>
+              <option value="dmel">Drosophila melanogaster</option>
+              <option value="athal">Arabidopsis thaliana</option>
+              <option value="mmus">Mus musculus</option>
+              <option value="hsap">Homo sapiens</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="domain">Protein domain / motif</label>
+          <div class="disabledBox">
+            <b>COMING SOON.</b><br><br>
+            Motif search is disabled in this build. The UI is real, the results are not.
+            When we wire the engine back in, this box will accept patterns (e.g., PROSITE,
+            HMM, consensus), run across the selected predicted proteomes, and paint presence/absence
+            across the tree.<br><br>
+            For now: use the dropdown to zoom the 2004 species set.
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Run</label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" id="fakeRunBtn" title="Updates output panel (no real analysis).">Map Domain</button>
+            <button class="btn" id="exportBtn" title="Downloads a simple text report of the current view.">Export Report</button>
+          </div>
+        </div>
+
+        <div class="statusline" id="status">
+          Status: <b>READY</b> | Dataset: <span class="badge">2004-proteomes (curated)</span>
         </div>
       </div>
 
-      <div class="pillrow">
-        <a class="pill" href="#" id="pill-paper">paper (soon)</a>
-        <a class="pill" href="#" id="pill-github">source (soon)</a>
-        <a class="pill" href="#" id="pill-contact">contact</a>
+      <!-- RIGHT: Display -->
+      <div class="panel">
+        <h2>Display</h2>
+
+        <div class="viewport">
+          <!-- SVG: simple “tree of life” with bounding boxes for zoom targets -->
+          <svg id="treeSvg" viewBox="0 0 980 460" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Tree of Life (curated 2004 proteomes)">
+            <!-- Big trunk -->
+            <path class="edge" d="M140 230 L260 230" />
+
+            <!-- Three domains -->
+            <path class="edge" d="M260 230 L360 130" />
+            <path class="edge" d="M260 230 L360 230" />
+            <path class="edge" d="M260 230 L360 330" />
+
+            <text class="cladeLabel" x="300" y="115">Archaea</text>
+            <text class="cladeLabel" x="300" y="215">Bacteria</text>
+            <text class="cladeLabel" x="300" y="355">Eukaryota</text>
+
+            <!-- Archaea branch -->
+            <path class="edge" d="M360 130 L470 90" />
+            <path class="edge" d="M360 130 L470 150" />
+
+            <g id="node-mjann" data-box="400,60,220,90">
+              <circle class="node" cx="470" cy="90" r="10" />
+              <text class="label" x="490" y="94">M. jannaschii</text>
+            </g>
+
+            <g id="node-afulg" data-box="400,120,220,90">
+              <circle class="node" cx="470" cy="150" r="10" />
+              <text class="label" x="490" y="154">A. fulgidus</text>
+            </g>
+
+            <!-- Bacteria branch -->
+            <path class="edge" d="M360 230 L470 190" />
+            <path class="edge" d="M360 230 L470 230" />
+            <path class="edge" d="M360 230 L470 270" />
+
+            <g id="node-ecoli" data-box="400,150,260,110">
+              <circle class="node" cx="470" cy="190" r="10" />
+              <text class="label" x="490" y="194">E. coli K-12</text>
+            </g>
+
+            <g id="node-bsub" data-box="400,190,260,110">
+              <circle class="node" cx="470" cy="230" r="10" />
+              <text class="label" x="490" y="234">B. subtilis</text>
+            </g>
+
+            <g id="node-mtb" data-box="400,230,320,120">
+              <circle class="node" cx="470" cy="270" r="10" />
+              <text class="label" x="490" y="274">M. tuberculosis</text>
+            </g>
+
+            <g id="node-hpyl" data-box="520,150,350,200" transform="translate(0,0)">
+              <!-- side branch from bacteria node line -->
+              <path class="edge" d="M470 230 L610 230" />
+              <circle class="node" cx="610" cy="230" r="10" />
+              <text class="label" x="630" y="234">H. pylori</text>
+            </g>
+
+            <g id="node-tmar" data-box="520,245,380,180">
+              <path class="edge" d="M470 270 L620 310" />
+              <circle class="node" cx="620" cy="310" r="10" />
+              <text class="label" x="640" y="314">T. maritima</text>
+            </g>
+
+            <!-- Eukaryota branch -->
+            <path class="edge" d="M360 330 L460 300" />
+            <path class="edge" d="M360 330 L460 330" />
+            <path class="edge" d="M360 330 L460 360" />
+
+            <!-- fungi / protist / metazoa / plant fanout -->
+            <path class="edge" d="M460 300 L580 280" />
+            <path class="edge" d="M460 330 L580 330" />
+            <path class="edge" d="M460 360 L580 390" />
+
+            <g id="node-scer" data-box="520,240,360,120">
+              <circle class="node" cx="580" cy="280" r="10" />
+              <text class="label" x="600" y="284">S. cerevisiae</text>
+            </g>
+
+            <g id="node-pfal" data-box="520,290,420,150">
+              <circle class="node" cx="580" cy="330" r="10" />
+              <text class="label" x="600" y="334">P. falciparum</text>
+            </g>
+
+            <g id="node-athal" data-box="520,350,420,140">
+              <circle class="node" cx="580" cy="390" r="10" />
+              <text class="label" x="600" y="394">A. thaliana</text>
+            </g>
+
+            <!-- metazoa sub-branch -->
+            <path class="edge" d="M580 330 L700 320" />
+            <path class="edge" d="M580 330 L700 350" />
+
+            <g id="node-cele" data-box="640,275,320,160">
+              <circle class="node" cx="700" cy="320" r="10" />
+              <text class="label" x="720" y="324">C. elegans</text>
+            </g>
+
+            <g id="node-dmel" data-box="640,305,320,160">
+              <circle class="node" cx="700" cy="350" r="10" />
+              <text class="label" x="720" y="354">D. melanogaster</text>
+            </g>
+
+            <!-- mammals branch -->
+            <path class="edge" d="M700 350 L820 340" />
+            <path class="edge" d="M700 350 L820 370" />
+
+            <g id="node-mmus" data-box="760,310,220,150">
+              <circle class="node" cx="820" cy="340" r="10" />
+              <text class="label" x="840" y="344">M. musculus</text>
+            </g>
+
+            <g id="node-hsap" data-box="760,340,220,150">
+              <circle class="node" cx="820" cy="370" r="10" />
+              <text class="label" x="840" y="374">H. sapiens</text>
+            </g>
+
+            <!-- Root label -->
+            <g>
+              <circle class="node" cx="140" cy="230" r="12" />
+              <text class="label" x="90" y="255">LUCA*</text>
+              <text class="cladeLabel" x="22" y="275" style="font-size:11px; opacity:.75;">
+                *illustrative schematic
+              </text>
+            </g>
+          </svg>
+
+          <div class="caption" id="caption">
+            View: Full Tree of Life (curated 2004 proteomes)
+          </div>
+        </div>
+
+        <div class="output" id="output">
+phyloMAT v0.9 (UI restoration build)
+-----------------------------------
+No motif engine connected.
+
+Use the dropdown (left) to zoom the curated 2004 predicted-proteome set.
+This interface is intentionally honest: it looks like the old tool, but
+it does not claim results it can’t compute.
+        </div>
       </div>
-    </header>
+    </div>
 
-    <section class="hero">
-      <div class="card">
-        <div class="hd">
-          <div>
-            <div class="title">Demo mode</div>
-            <div class="sub">A working front door today, real databases next.</div>
-          </div>
-          <span class="badge on" id="modeBadge">stubbed</span>
-        </div>
-
-        <div class="bd">
-          <div class="grid2">
-            <div>
-              <label for="motif">Motif / domain</label>
-              <input id="motif" placeholder="e.g., PF00069 or 'kinase domain'" />
-            </div>
-            <div>
-              <label for="scope">Scope</label>
-              <select id="scope">
-                <option value="all">Archaea • Bacteria • Eukarya</option>
-                <option value="archaea">Archaea</option>
-                <option value="bacteria">Bacteria</option>
-                <option value="eukarya">Eukarya</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="run" id="runBtn">Run Phylomat</button>
-            <button class="ghost" id="downloadBtn" disabled>Download JSON</button>
-            <button class="ghost" id="resetBtn">Reset</button>
-          </div>
-
-          <div class="note">
-            <strong>What you’re seeing:</strong> the original workflow as a modern shell.
-            When you’re ready, we wire the “Motif lookup” step to InterPro/Pfam and the “Sequences” step to UniProt via a Cloudflare Worker.
-          </div>
-        </div>
+    <div class="ftr">
+      <div>
+        <span class="badge">Boxy Mode: ON</span>
+        <span style="margin-left:8px;">© 2004-ish vibes, rebuilt</span>
       </div>
-
-      <div class="card">
-        <div class="hd">
-          <div>
-            <div class="title">Pipeline</div>
-            <div class="sub">Motif → proteins → sequences → alignment → tree → stats</div>
-          </div>
-          <span class="badge" id="statusBadge">idle</span>
-        </div>
-
-        <div class="bd">
-          <div class="pipeline" id="pipeline">
-            <div class="step" data-step="0"><div>
-              <div class="k">Input</div><div class="v">Motif name</div></div><span class="badge">user</span>
-            </div>
-            <div class="step" data-step="1"><div>
-              <div class="k">Lookup</div><div class="v">Motif/domain databases</div></div><span class="badge">pending</span>
-            </div>
-            <div class="step" data-step="2"><div>
-              <div class="k">Fetch</div><div class="v">Protein names + organisms</div></div><span class="badge">pending</span>
-            </div>
-            <div class="step" data-step="3"><div>
-              <div class="k">Extract</div><div class="v">Sequences</div></div><span class="badge">pending</span>
-            </div>
-            <div class="step" data-step="4"><div>
-              <div class="k">Compute</div><div class="v">Alignment + tree</div></div><span class="badge">pending</span>
-            </div>
-            <div class="step" data-step="5"><div>
-              <div class="k">Summarize</div><div class="v">Result statistics</div></div><span class="badge">pending</span>
-            </div>
-            <div class="step" data-step="6"><div>
-              <div class="k">Return</div><div class="v">Results to user</div></div><span class="badge">pending</span>
-            </div>
-          </div>
-
-          <div style="margin-top:12px;">
-            <pre id="output">{ "status": "idle", "hint": "Type a motif/domain and click Run." }</pre>
-          </div>
-        </div>
+      <div>
+        <a href="#" id="aboutLink">About</a> |
+        <a href="#" id="helpLink">Help</a>
       </div>
-    </section>
-
-    <footer>
-      © <span id="year"></span> Phylomat. Rebuilt from the original concept: motif-driven phylogenomics.
-      <span style="display:block; margin-top:6px;">
-        Tip: If you want this to feel archival, we can add a “2004” mode with classic typography and a scanned-figure aesthetic.
-      </span>
-    </footer>
+    </div>
   </div>
 
   <script>
-    const steps = [...document.querySelectorAll(".step")];
-    const statusBadge = document.getElementById("statusBadge");
-    const modeBadge = document.getElementById("modeBadge");
-    const out = document.getElementById("output");
-    const runBtn = document.getElementById("runBtn");
-    const downloadBtn = document.getElementById("downloadBtn");
-    const resetBtn = document.getElementById("resetBtn");
-    const motifEl = document.getElementById("motif");
-    const scopeEl = document.getElementById("scope");
-    const yearEl = document.getElementById("year");
+    // ==========================
+    // Tiny state + helpers
+    // ==========================
+    const app = document.getElementById('app');
+    const header = document.getElementById('header');
+    const spinBtn = document.getElementById('spinBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
-    yearEl.textContent = new Date().getFullYear();
+    const proteomeSelect = document.getElementById('proteome');
+    const fakeRunBtn = document.getElementById('fakeRunBtn');
+    const exportBtn = document.getElementById('exportBtn');
 
-    let lastResult = null;
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const captionEl = document.getElementById('caption');
 
-    function setStatus(text){
-      statusBadge.textContent = text;
+    const svg = document.getElementById('treeSvg');
+
+    // default viewBox (full)
+    const FULL = { x:0, y:0, w:980, h:460 };
+    let currentView = { ...FULL };
+
+    // map select value -> node id in SVG
+    const keyToNodeId = {
+      ecoli: 'node-ecoli',
+      bsub:  'node-bsub',
+      mtb:   'node-mtb',
+      hpyl:  'node-hpyl',
+      tmar:  'node-tmar',
+      mjann: 'node-mjann',
+      afulg: 'node-afulg',
+      scer:  'node-scer',
+      pfal:  'node-pfal',
+      cele:  'node-cele',
+      dmel:  'node-dmel',
+      athal: 'node-athal',
+      mmus:  'node-mmus',
+      hsap:  'node-hsap',
+    };
+
+    function setStatus(msg, level='READY'){
+      const levelColor =
+        level === 'READY' ? 'READY' :
+        level === 'WORKING' ? 'WORKING' :
+        level === 'NOTE' ? 'NOTE' : 'READY';
+      statusEl.innerHTML = `Status: <b>${levelColor}</b> | ${msg}`;
     }
 
-    function clearActive(){
-      steps.forEach(s => s.classList.remove("active"));
-      steps.forEach(s => {
-        const b = s.querySelector(".badge");
-        if (b && b.textContent !== "user") b.textContent = "pending";
-      });
+    function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+    // Smoothly tween viewBox to target over ~350ms
+    function animateViewBox(to, ms=350){
+      const from = { ...currentView };
+      const t0 = performance.now();
+
+      function step(now){
+        const t = clamp((now - t0) / ms, 0, 1);
+        // Ease in/out (simple cubic)
+        const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+
+        const x = from.x + (to.x - from.x) * e;
+        const y = from.y + (to.y - from.y) * e;
+        const w = from.w + (to.w - from.w) * e;
+        const h = from.h + (to.h - from.h) * e;
+
+        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+
+        if(t < 1){
+          requestAnimationFrame(step);
+        }else{
+          currentView = { ...to };
+        }
+      }
+      requestAnimationFrame(step);
     }
 
-    function activate(i, badgeText){
-      const el = steps.find(s => +s.dataset.step === i);
-      if (!el) return;
-      el.classList.add("active");
-      const b = el.querySelector(".badge");
-      if (b && b.textContent !== "user") b.textContent = badgeText || "running";
+    // Remove prior highlights, then highlight current node
+    function clearHighlights(){
+      svg.querySelectorAll('.node').forEach(n => n.classList.remove('hot'));
+      svg.querySelectorAll('.node').forEach(n => n.classList.remove('highlight'));
     }
 
-    function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+    function zoomToKey(key){
+      const nodeId = keyToNodeId[key];
+      const g = document.getElementById(nodeId);
+      if(!g) return;
 
-    function fakeCounts(scope){
-      const base = scope === "all" ? 120 : scope === "bacteria" ? 78 : scope === "eukarya" ? 44 : 18;
-      const proteins = base + Math.floor(Math.random()*30);
-      const organisms = Math.max(6, Math.floor(proteins/6));
-      return { proteins, organisms };
-    }
+      clearHighlights();
 
-    function makeStubResult(motif, scope){
-      const { proteins, organisms } = fakeCounts(scope);
-      const now = new Date().toISOString();
-
-      // A deliberately honest stub: structured like the eventual real output.
-      return {
-        tool: "phylomat",
-        mode: "demo-stub",
-        timestamp: now,
-        query: { motif, scope },
-        sources: {
-          motif_db: "pending (InterPro/Pfam)",
-          protein_db: "pending (UniProt)",
-          alignment: "pending (MAFFT)",
-          tree: "pending (FastTree/NJ)"
-        },
-        results: {
-          proteins_found: proteins,
-          organisms_found: organisms,
-          downloads: {
-            proteins_table: "coming soon",
-            sequences_fasta: "coming soon",
-            alignment: "coming soon",
-            tree_newick: "coming soon"
-          }
-        },
-        next: [
-          "Wire motif lookup to InterPro/Pfam via Cloudflare Worker",
-          "Fetch sequences from UniProt accessions",
-          "Run alignment + tree server-side and return artifacts"
-        ]
-      };
-    }
-
-    async function run(){
-      const motif = (motifEl.value || "").trim();
-      const scope = scopeEl.value;
-
-      if (!motif){
-        out.textContent = '{ "error": "Please enter a motif/domain (e.g., PF00069 or a keyword)." }';
+      // Parse bounding box stored as data-box="x,y,w,h"
+      const parts = (g.getAttribute('data-box') || '').split(',').map(Number);
+      if(parts.length !== 4 || parts.some(Number.isNaN)){
+        // fallback: just full
+        animateViewBox(FULL);
+        captionEl.textContent = 'View: Full Tree of Life (curated 2004 proteomes)';
         return;
       }
+      const [x,y,w,h] = parts;
 
-      clearActive();
-      setStatus("running");
-      downloadBtn.disabled = true;
+      // Add a little padding around the target box
+      const pad = 26;
+      const target = {
+        x: Math.max(0, x - pad),
+        y: Math.max(0, y - pad),
+        w: Math.min(980, w + pad*2),
+        h: Math.min(460, h + pad*2),
+      };
 
-      out.textContent = JSON.stringify({ status: "running", motif, scope }, null, 2);
+      // Highlight the node circle (first circle inside the group)
+      const circle = g.querySelector('circle');
+      if(circle){
+        circle.classList.add('hot');
+        circle.classList.add('highlight');
+      }
 
-      activate(0, "ok"); await sleep(350);
-      activate(1, "lookup"); await sleep(520);
-      activate(2, "fetch"); await sleep(520);
-      activate(3, "extract"); await sleep(520);
-      activate(4, "compute"); await sleep(680);
-      activate(5, "summarize"); await sleep(420);
-      activate(6, "ready"); await sleep(220);
+      animateViewBox(target);
+      const label = g.querySelector('text')?.textContent?.trim() || 'Selection';
+      captionEl.textContent = `View: ${label} (2004 predicted proteome set)`;
 
-      lastResult = makeStubResult(motif, scope);
-      out.textContent = JSON.stringify(lastResult, null, 2);
+      // Update output with “plausible but honest” text: no claims of computation
+      outputEl.textContent =
+`phyloMAT v0.9 (UI restoration build)
+-----------------------------------
+Zoom target: ${label}
 
-      setStatus("complete");
-      downloadBtn.disabled = false;
+What this interface will do (later):
+- map a domain/motif across a curated proteome set (circa 2004)
+- project presence/absence onto the phylogeny
+- highlight clade dominance, splits, and convergent emergence
+
+What it does now:
+- curated taxa dropdown (functional)
+- interactive tree zoom (functional)
+- motif engine placeholder (disabled, coming soon)
+`;
+      setStatus(`View updated: <span class="badge">${label}</span>`, 'NOTE');
     }
 
-    function download(){
-      if (!lastResult) return;
-      const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+    function resetView(){
+      clearHighlights();
+      animateViewBox(FULL);
+      captionEl.textContent = 'View: Full Tree of Life (curated 2004 proteomes)';
+      setStatus('Dataset: <span class="badge">2004-proteomes (curated)</span>', 'READY');
+    }
+
+    // ==========================
+    // UI wiring
+    // ==========================
+
+    // Spin toggle: add/remove class on header
+    header.classList.add('spinOn');
+    spinBtn.addEventListener('click', () => {
+      const on = header.classList.toggle('spinOn');
+      spinBtn.setAttribute('aria-pressed', String(on));
+      spinBtn.textContent = on ? 'Spin: ON' : 'Spin: OFF';
+    });
+
+    resetBtn.addEventListener('click', resetView);
+
+    proteomeSelect.addEventListener('change', (e) => {
+      zoomToKey(e.target.value);
+    });
+
+    // “Map Domain” button: does NOT pretend to compute results
+    fakeRunBtn.addEventListener('click', () => {
+      const key = proteomeSelect.value;
+      const nodeId = keyToNodeId[key];
+      const g = document.getElementById(nodeId);
+      const label = g?.querySelector('text')?.textContent?.trim() || 'Selection';
+
+      setStatus('UI demo mode: motif engine not connected.', 'NOTE');
+      outputEl.textContent =
+`phyloMAT v0.9 (UI restoration build)
+-----------------------------------
+Command received: Map Domain
+
+Motif engine status: DISCONNECTED (coming soon)
+
+Selected dataset focus: ${label}
+Action taken: updated interface state only (no results generated)
+
+Reason:
+This build avoids “fake outputs.” The tool should not look like it ran
+unless it can produce real evidence.
+`;
+    });
+
+    // Export a tiny text report for the current view
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([outputEl.textContent], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = url;
-      a.download = "phylomat-result.json";
+      a.download = 'phyloMAT_report.txt';
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    }
-
-    function reset(){
-      motifEl.value = "";
-      scopeEl.value = "all";
-      lastResult = null;
-      clearActive();
-      setStatus("idle");
-      out.textContent = '{ "status": "idle", "hint": "Type a motif/domain and click Run." }';
-      downloadBtn.disabled = true;
-    }
-
-    runBtn.addEventListener("click", run);
-    downloadBtn.addEventListener("click", download);
-    resetBtn.addEventListener("click", reset);
-
-    // Simple "contact" behavior without hardcoding email in the DOM
-    document.getElementById("pill-contact").addEventListener("click", (e) => {
-      e.preventDefault();
-      const user = "w";
-      const domain = "phylomat.org";
-      window.location.href = `mailto:${user}@${domain}?subject=Phylomat`;
+      setStatus('Exported: <span class="badge">phyloMAT_report.txt</span>', 'NOTE');
     });
 
-    // placeholders for now
-    document.getElementById("pill-paper").addEventListener("click", (e) => {
+    // Fake About/Help links (pure UI)
+    document.getElementById('aboutLink').addEventListener('click', (e) => {
       e.preventDefault();
-      alert("Paper link coming soon. Once you have the PDF/DOI, we’ll wire this.");
+      outputEl.textContent =
+`About phyloMAT
+--------------
+phyloMAT was built to connect sequence motifs to phylogenomics:
+where a domain dominates, where it splits, where it appears twice.
+
+This restoration build recreates the 2004 interface and interaction
+patterns first. The analysis engine will be reintroduced later.`;
+      setStatus('Opened About (local)', 'NOTE');
     });
-    document.getElementById("pill-github").addEventListener("click", (e) => {
+
+    document.getElementById('helpLink').addEventListener('click', (e) => {
       e.preventDefault();
-      alert("Source link coming soon. If you want, we can set up a repo structure next.");
+      outputEl.textContent =
+`Help
+----
+1) Pick a predicted proteome (circa 2004) from the dropdown.
+2) The tree zooms to its clade and highlights the node.
+3) Motif search is "coming soon" (disabled intentionally).
+
+Tip:
+Toggle the spinning logo for maximum 2004 energy.`;
+      setStatus('Opened Help (local)', 'NOTE');
     });
+
+    // Initialize: zoom to first option to show it’s alive
+    zoomToKey(proteomeSelect.value);
   </script>
 </body>
 </html>

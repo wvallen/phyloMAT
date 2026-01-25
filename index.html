@@ -7,61 +7,59 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <canvas id="atlas"></canvas>
+  <canvas id="c"></canvas>
 
-  <div class="brand" id="btnHome" title="Home (tri)">
-    <div class="logoSpin" aria-hidden="true">
-      <!-- swap this SVG for your real logo -->
-      <svg width="42" height="42" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="black" stroke-width="6"/>
-        <path d="M50 12 L62 50 L50 88 L38 50 Z" fill="black"/>
-      </svg>
-    </div>
-    <div>
+  <div class="brand" id="btnReturn" title="Return to current position">
+    <img class="logoSpin" src="./logo.svg" alt="phyloMAT logo" />
+    <div class="brandText">
       <div class="brandTitle">phyloMAT 2.0</div>
-      <div class="brandSub">explore mode</div>
+      <div class="brandSub">phylo-decision motif analysis tool</div>
     </div>
   </div>
 
   <aside class="dock">
     <div class="row">
-      <button id="btnBack" class="btn">Back</button>
+      <button id="btnStart" class="btn">Start</button>
+      <button id="btnTravel" class="btn" disabled>Travel</button>
+      <button id="btnOverview" class="btn">Overview</button>
+      <button id="btnReturn2" class="btn">Return</button>
       <button id="btnReset" class="btn">Reset</button>
       <button id="btnPNG" class="btn">PNG</button>
-      <button id="btnState" class="btn">state.xml</button>
-      <button id="btnPrompt" class="btn">prompt</button>
     </div>
 
     <div class="row">
-      <div class="k">Detail</div>
-      <input id="slDetail" class="slider" type="range" min="1" max="5" value="2" />
-      <div id="detailLabel" class="v">2</div>
+      <div class="k">Openness</div>
+      <input id="slOpen" class="slider" type="range" min="0" max="100" value="55" />
+      <div id="lbOpen" class="v">0.55</div>
     </div>
 
     <div class="row">
-      <label class="chk"><input id="togClouds" type="checkbox" checked /> clouds</label>
-      <label class="chk"><input id="togLabels" type="checkbox" checked /> labels</label>
-      <label class="chk"><input id="togContext" type="checkbox" checked /> context</label>
+      <div class="k">Horizon</div>
+      <input id="slHor" class="slider" type="range" min="2" max="12" value="6" />
+      <div id="lbHor" class="v">6</div>
+    </div>
+
+    <div class="row">
+      <div class="k">Speed</div>
+      <input id="slSpeed" class="slider" type="range" min="30" max="220" value="120" />
+      <div id="lbSpeed" class="v">1.20</div>
+    </div>
+
+    <div class="row">
+      <label class="chk"><input id="togBox" type="checkbox" checked /> box constraint</label>
+      <label class="chk"><input id="togGhost" type="checkbox" checked /> ghost alternatives</label>
     </div>
 
     <div class="panel">
-      <div class="stat"><span class="k">Loaded</span> <span id="statLoaded" class="v">—</span></div>
-      <div class="stat"><span class="k">Focus</span> <span id="statFocus" class="v">—</span></div>
-      <div class="stat"><span class="k">Hover</span> <span id="statHover" class="v">—</span></div>
-      <div class="stat"><span class="k">Pins</span> <span id="statPins" class="v">—</span></div>
+      <div class="stat"><span class="k2">Run</span> <span id="stRun" class="v2">—</span></div>
+      <div class="stat"><span class="k2">Mode</span> <span id="stMode" class="v2">path</span></div>
+      <div class="stat"><span class="k2">Step</span> <span id="stStep" class="v2">0</span></div>
+      <div class="stat"><span class="k2">Options</span> <span id="stOpt" class="v2">0</span></div>
     </div>
 
-    <div class="panel">
-      <div class="k">Breadcrumb</div>
-      <div id="crumbs" class="crumbs">tri</div>
+    <div class="foot">
+      click selects · click Travel commits · rapid double-click commits · Overview shows the whole run
     </div>
-
-    <div class="panel">
-      <div class="k">Details</div>
-      <div id="details" class="details">Click a node.</div>
-    </div>
-
-    <div class="foot">Click enters · Shift-click pins · Wheel changes detail</div>
   </aside>
 
   <script type="module" src="./engine.js"></script>

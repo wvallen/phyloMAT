@@ -96,8 +96,25 @@
     <edge from="proteobacteria" to="e_coli" type="taxonomy" w="0.55"/>
   </edges>
 
-  <patches>
-    <!-- Paste new patches here -->
-  </patches>
+<patch>
+  <node id="metazoa" label="Metazoa" kind="taxon" confidence="high" fog="0.20" placement="animal lineage"/>
+  <node id="bilateria" label="Bilateria" kind="taxon" confidence="high" fog="0.22" placement="body plan"/>
+  <node id="chordata" label="Chordata" kind="taxon" confidence="high" fog="0.22" placement="chordate lineage"/>
+  <node id="vertebrata" label="Vertebrata" kind="taxon" confidence="high" fog="0.22" placement="vertebrate lineage"/>
+  <node id="mammalia" label="Mammalia" kind="taxon" confidence="high" fog="0.22" placement="mammal lineage"/>
+  <node id="primates" label="Primates" kind="taxon" confidence="high" fog="0.24" placement="primate lineage"/>
+  <node id="hominidae" label="Hominidae" kind="taxon" confidence="high" fog="0.26" placement="great apes"/>
+  <node id="homo" label="Homo" kind="taxon" confidence="high" fog="0.26" placement="genus"/>
+
+  <edge from="animals" to="metazoa" type="taxonomy" w="0.55"/>
+  <edge from="metazoa" to="bilateria" type="taxonomy" w="0.55"/>
+  <edge from="bilateria" to="chordata" type="taxonomy" w="0.55"/>
+  <edge from="chordata" to="vertebrata" type="taxonomy" w="0.55"/>
+  <edge from="vertebrata" to="mammalia" type="taxonomy" w="0.55"/>
+  <edge from="mammalia" to="primates" type="taxonomy" w="0.55"/>
+  <edge from="primates" to="hominidae" type="taxonomy" w="0.55"/>
+  <edge from="hominidae" to="homo" type="taxonomy" w="0.55"/>
+  <edge from="homo" to="human" type="taxonomy" w="0.55"/>
+</patch>
 
 </atlas>

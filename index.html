@@ -7,87 +7,63 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-
-  <!-- Full-screen atlas -->
   <canvas id="atlas"></canvas>
 
-  <!-- Identity (top-left) -->
-  <div class="brand" id="brandHome" title="Reset to overview">
+  <div class="brand" id="btnHome" title="Home (tri)">
     <div class="logoSpin" aria-hidden="true">
-      <!-- Replace this SVG with your real logo SVG when ready -->
-      <svg width="44" height="44" viewBox="0 0 100 100">
+      <!-- swap this SVG for your real logo -->
+      <svg width="42" height="42" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="42" fill="none" stroke="black" stroke-width="6"/>
         <path d="M50 12 L62 50 L50 88 L38 50 Z" fill="black"/>
       </svg>
     </div>
-    <div class="brandText">
+    <div>
       <div class="brandTitle">phyloMAT 2.0</div>
-      <div class="brandSub">causal taxonomy atlas</div>
+      <div class="brandSub">explore mode</div>
     </div>
   </div>
 
-  <!-- Control dock (top-right) -->
   <aside class="dock">
-    <div class="dockRow">
-      <select id="gotoSelect" class="select">
-        <option value="tri">tri</option>
-      </select>
-      <button id="btnGo" class="btn">Go</button>
+    <div class="row">
+      <button id="btnBack" class="btn">Back</button>
       <button id="btnReset" class="btn">Reset</button>
+      <button id="btnPNG" class="btn">PNG</button>
+      <button id="btnState" class="btn">state.xml</button>
+      <button id="btnPrompt" class="btn">prompt</button>
     </div>
 
-    <div class="dockRow">
-      <button id="btnPNG" class="btn">Export PNG</button>
-      <button id="btnState" class="btn">Export state.xml</button>
-      <button id="btnPrompt" class="btn">Generate prompt</button>
+    <div class="row">
+      <div class="k">Detail</div>
+      <input id="slDetail" class="slider" type="range" min="1" max="5" value="2" />
+      <div id="detailLabel" class="v">2</div>
     </div>
 
-    <div class="dockGrid">
+    <div class="row">
       <label class="chk"><input id="togClouds" type="checkbox" checked /> clouds</label>
-      <label class="chk"><input id="togTaxEdges" type="checkbox" checked /> taxonomy edges</label>
-      <label class="chk"><input id="togMesh" type="checkbox" checked /> mesh</label>
       <label class="chk"><input id="togLabels" type="checkbox" checked /> labels</label>
+      <label class="chk"><input id="togContext" type="checkbox" checked /> context</label>
     </div>
 
-    <div class="dockSliders">
-      <div class="sliderRow">
-        <div class="k">label</div>
-        <input id="slLabel" class="slider" type="range" min="11" max="22" value="14" />
-      </div>
-      <div class="sliderRow">
-        <div class="k">cloud</div>
-        <input id="slCloud" class="slider" type="range" min="0" max="100" value="55" />
-      </div>
-      <div class="sliderRow">
-        <div class="k">mesh</div>
-        <input id="slMesh" class="slider" type="range" min="0" max="100" value="35" />
-      </div>
-      <div class="sliderRow">
-        <div class="k">lock</div>
-        <input id="slLock" class="slider" type="range" min="20" max="220" value="90" />
-      </div>
-    </div>
-
-    <div class="dockStats">
+    <div class="panel">
       <div class="stat"><span class="k">Loaded</span> <span id="statLoaded" class="v">—</span></div>
+      <div class="stat"><span class="k">Focus</span> <span id="statFocus" class="v">—</span></div>
       <div class="stat"><span class="k">Hover</span> <span id="statHover" class="v">—</span></div>
-      <div class="stat"><span class="k">Selected</span> <span id="statSel" class="v">—</span></div>
       <div class="stat"><span class="k">Pins</span> <span id="statPins" class="v">—</span></div>
     </div>
 
-    <div class="dockFoot">
-      drag pans · wheel zooms · click selects · shift-click pins · double-click centers
+    <div class="panel">
+      <div class="k">Breadcrumb</div>
+      <div id="crumbs" class="crumbs">tri</div>
     </div>
+
+    <div class="panel">
+      <div class="k">Details</div>
+      <div id="details" class="details">Click a node.</div>
+    </div>
+
+    <div class="foot">Click enters · Shift-click pins · Wheel changes detail</div>
   </aside>
 
   <script type="module" src="./engine.js"></script>
-
-  <script>
-    // Brand click resets (no engine coupling required)
-    document.getElementById("brandHome").addEventListener("click", () => {
-      const btn = document.getElementById("btnReset");
-      if (btn) btn.click();
-    });
-  </script>
 </body>
 </html>

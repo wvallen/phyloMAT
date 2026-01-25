@@ -1,89 +1,93 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>phyloMAT 2.0</title>
-  <link rel="stylesheet" href="./styles.css"/>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="hud">
-    <div class="brand">
-      <div class="logoWrap" title="phyloMAT 2.0">
-        <!-- Replace ./logo.svg with your real logo file (same filename) -->
-        <img class="logoSpin" src="./logo.svg" alt="phyloMAT logo"/>
-      </div>
-      <div class="brandText">
-        <div class="title">phyloMAT 2.0</div>
-        <div class="subtitle">causal taxonomy atlas · time implicit · uncertainty as fog · grows by XML patches</div>
-      </div>
-    </div>
 
-    <div class="controls">
-      <div class="row">
-        <label class="lbl">Go</label>
-        <select id="gotoSelect">
-          <option value="tri">Tri-domain (overview)</option>
-          <option value="human">Human</option>
-          <option value="t_thermophila">Tetrahymena thermophila</option>
-          <option value="e_coli">E. coli</option>
-        </select>
-        <button id="btnGo">Go</button>
-        <button id="btnReset">Reset</button>
-      </div>
-
-      <div class="row">
-        <label class="chk"><input type="checkbox" id="togClouds" checked/> Clouds</label>
-        <label class="chk"><input type="checkbox" id="togTaxEdges" checked/> Taxonomy</label>
-        <label class="chk"><input type="checkbox" id="togMesh" checked/> Mesh</label>
-        <label class="chk"><input type="checkbox" id="togLabels" checked/> Labels</label>
-      </div>
-
-      <div class="row sliders">
-        <div class="sl">
-          <label>Label size</label>
-          <input id="slLabel" type="range" min="10" max="22" value="14"/>
-        </div>
-        <div class="sl">
-          <label>Cloud opacity</label>
-          <input id="slCloud" type="range" min="0" max="100" value="55"/>
-        </div>
-        <div class="sl">
-          <label>Mesh density</label>
-          <input id="slMesh" type="range" min="0" max="100" value="40"/>
-        </div>
-        <div class="sl">
-          <label>Flow → lock</label>
-          <input id="slLock" type="range" min="10" max="200" value="70"/>
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="btnPNG">Export PNG</button>
-        <button id="btnState">Export state.xml</button>
-        <button id="btnPrompt">Generate LLM prompt</button>
-      </div>
-    </div>
-
-    <div class="rightbox">
-      <div class="statline"><span class="k">Loaded</span> <span id="statLoaded">—</span></div>
-      <div class="statline"><span class="k">Hover</span> <span id="statHover">—</span></div>
-      <div class="statline"><span class="k">Selected</span> <span id="statSel">—</span></div>
-      <div class="statline"><span class="k">Pinned</span> <span id="statPins">—</span></div>
-
-      <div class="links">
-        <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" rel="noreferrer">PubMed</a>
-        <a href="https://w.oodland.com" target="_blank" rel="noreferrer">w.oodland</a>
-      </div>
-    </div>
-  </div>
-
+  <!-- Full-screen atlas -->
   <canvas id="atlas"></canvas>
 
-  <div class="footerHint">
-    drag pans · wheel zooms · click selects · shift-click pins · double-click centers
+  <!-- Identity (top-left) -->
+  <div class="brand" id="brandHome" title="Reset to overview">
+    <div class="logoSpin" aria-hidden="true">
+      <!-- Replace this SVG with your real logo SVG when ready -->
+      <svg width="44" height="44" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="black" stroke-width="6"/>
+        <path d="M50 12 L62 50 L50 88 L38 50 Z" fill="black"/>
+      </svg>
+    </div>
+    <div class="brandText">
+      <div class="brandTitle">phyloMAT 2.0</div>
+      <div class="brandSub">causal taxonomy atlas</div>
+    </div>
   </div>
 
+  <!-- Control dock (top-right) -->
+  <aside class="dock">
+    <div class="dockRow">
+      <select id="gotoSelect" class="select">
+        <option value="tri">tri</option>
+      </select>
+      <button id="btnGo" class="btn">Go</button>
+      <button id="btnReset" class="btn">Reset</button>
+    </div>
+
+    <div class="dockRow">
+      <button id="btnPNG" class="btn">Export PNG</button>
+      <button id="btnState" class="btn">Export state.xml</button>
+      <button id="btnPrompt" class="btn">Generate prompt</button>
+    </div>
+
+    <div class="dockGrid">
+      <label class="chk"><input id="togClouds" type="checkbox" checked /> clouds</label>
+      <label class="chk"><input id="togTaxEdges" type="checkbox" checked /> taxonomy edges</label>
+      <label class="chk"><input id="togMesh" type="checkbox" checked /> mesh</label>
+      <label class="chk"><input id="togLabels" type="checkbox" checked /> labels</label>
+    </div>
+
+    <div class="dockSliders">
+      <div class="sliderRow">
+        <div class="k">label</div>
+        <input id="slLabel" class="slider" type="range" min="11" max="22" value="14" />
+      </div>
+      <div class="sliderRow">
+        <div class="k">cloud</div>
+        <input id="slCloud" class="slider" type="range" min="0" max="100" value="55" />
+      </div>
+      <div class="sliderRow">
+        <div class="k">mesh</div>
+        <input id="slMesh" class="slider" type="range" min="0" max="100" value="35" />
+      </div>
+      <div class="sliderRow">
+        <div class="k">lock</div>
+        <input id="slLock" class="slider" type="range" min="20" max="220" value="90" />
+      </div>
+    </div>
+
+    <div class="dockStats">
+      <div class="stat"><span class="k">Loaded</span> <span id="statLoaded" class="v">—</span></div>
+      <div class="stat"><span class="k">Hover</span> <span id="statHover" class="v">—</span></div>
+      <div class="stat"><span class="k">Selected</span> <span id="statSel" class="v">—</span></div>
+      <div class="stat"><span class="k">Pins</span> <span id="statPins" class="v">—</span></div>
+    </div>
+
+    <div class="dockFoot">
+      drag pans · wheel zooms · click selects · shift-click pins · double-click centers
+    </div>
+  </aside>
+
   <script type="module" src="./engine.js"></script>
+
+  <script>
+    // Brand click resets (no engine coupling required)
+    document.getElementById("brandHome").addEventListener("click", () => {
+      const btn = document.getElementById("btnReset");
+      if (btn) btn.click();
+    });
+  </script>
 </body>
 </html>

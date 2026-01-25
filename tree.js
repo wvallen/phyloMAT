@@ -483,6 +483,9 @@ function draw(){
   const breathe = 0.55 + 0.45*Math.sin(now*0.0012); // slow
   const pathAlpha = 0.28 + 0.22*breathe;
 
+  const baseAlpha = clamp(0.20 + 0.10*Math.min(1, cam.z/1.2), 0.18, 0.32);
+  const baseStroke = `rgba(20,28,40,${baseAlpha})`;
+  
   // branches
   for(const s of segments){
     const p1 = worldToScreen(s.x1, s.y1);
@@ -498,7 +501,7 @@ function draw(){
     const onPath = (selectedPathKeys && (selectedPathKeys.has(s.k2) || selectedPathKeys.has(s.k1)));
 
     // default: soft graphite on white
-    let stroke = 'rgba(30,40,55,0.16)';
+    let stroke = baseStroke;
 
     // layers
     if(layerMode === 'demo_struct'){
@@ -515,7 +518,7 @@ function draw(){
     } else if(layerMode === 'mito'){
       // schematic landmark: eukaryote canopy gets a green wash
       const isEuk = (s.clade === 'Eukaryota');
-      stroke = isEuk ? 'rgba(47,168,111,0.18)' : 'rgba(30,40,55,0.14)';
+      stroke = isEuk ? 'rgba(47,168,111,0.18)' : baseStroke;
     }
 
     // selection path override (pulsing)

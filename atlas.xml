@@ -1,0 +1,76 @@
+<atlas version="1.0">
+
+  <clouds>
+    <cloud id="cloud_mito" label="mitochondrion acquisition" strength="0.9" x="320" y="330" r="260" drift="0.15"/>
+    <cloud id="cloud_plastid" label="plastid acquisition" strength="0.8" x="520" y="520" r="220" drift="0.12"/>
+    <cloud id="cloud_multi" label="multicellularity" strength="0.7" x="760" y="470" r="230" drift="0.10"/>
+    <cloud id="cloud_anaerobe" label="anaerobic niche" strength="0.6" x="420" y="170" r="190" drift="0.14"/>
+    <cloud id="cloud_land" label="on land" strength="0.55" x="860" y="600" r="210" drift="0.08"/>
+  </clouds>
+
+  <nodes>
+    <!-- Tier 1: tri-domain -->
+    <node id="bacteria" label="Bacteria" kind="taxon" confidence="high" fog="0.15" x="210" y="420" tier="1"/>
+    <node id="archaea" label="Archaea" kind="taxon" confidence="high" fog="0.18" x="260" y="240" tier="1"/>
+    <node id="eukaryota" label="Eukaryota" kind="taxon" confidence="high" fog="0.12" x="520" y="330" tier="1"/>
+
+    <!-- Plates -->
+    <node id="sar" label="SAR" kind="taxon" confidence="high" fog="0.22" x="520" y="250" tier="2" placement="eukaryotic plate"/>
+    <node id="opisthokonta" label="Opisthokonta" kind="taxon" confidence="high" fog="0.22" x="760" y="320" tier="2" placement="eukaryotic plate"/>
+    <node id="archaeplastida" label="Archaeplastida" kind="taxon" confidence="high" fog="0.22" x="610" y="520" tier="2" placement="eukaryotic plate"/>
+
+    <!-- Your focus: alveolata / ciliates -->
+    <node id="alveolata" label="Alveolata" kind="taxon" confidence="high" fog="0.28" x="450" y="185" tier="2" placement="ciliate region"/>
+    <node id="ciliophora" label="Ciliophora" kind="taxon" confidence="high" fog="0.22" x="420" y="120" tier="3"/>
+    <node id="oligohymenophorea" label="Oligohymenophorea" kind="taxon" confidence="medium" fog="0.35" x="370" y="85" tier="3"/>
+    <node id="hymenostomatida" label="Hymenostomatida" kind="taxon" confidence="medium" fog="0.35" x="330" y="68" tier="3"/>
+    <node id="tetrahymenidae" label="Tetrahymenidae" kind="taxon" confidence="medium" fog="0.35" x="295" y="58" tier="3"/>
+    <node id="tetrahymena" label="Tetrahymena" kind="taxon" confidence="high" fog="0.22" x="265" y="52" tier="3" placement="model anchor"/>
+    <node id="t_thermophila" label="T. thermophila" kind="exemplar" confidence="high" fog="0.14" x="238" y="48" tier="3" placement="model organism"/>
+
+    <!-- Rumen protozoa anchors -->
+    <node id="rumen_protozoa" label="rumen protozoa" kind="group" confidence="medium" fog="0.55" x="470" y="95" tier="3" placement="anaerobic niche"/>
+    <node id="entodinium" label="Entodinium" kind="taxon" confidence="medium" fog="0.45" x="520" y="70" tier="3"/>
+    <node id="epidinium" label="Epidinium" kind="taxon" confidence="medium" fog="0.45" x="565" y="82" tier="3"/>
+    <node id="isotricha" label="Isotricha" kind="taxon" confidence="medium" fog="0.45" x="520" y="120" tier="3"/>
+    <node id="dasytricha" label="Dasytricha" kind="taxon" confidence="medium" fog="0.45" x="565" y="125" tier="3"/>
+
+    <!-- Orientation pins (few) -->
+    <node id="animals" label="Animals" kind="taxon" confidence="high" fog="0.25" x="870" y="320" tier="2" placement="multicellular pocket"/>
+    <node id="plants" label="Land plants" kind="taxon" confidence="high" fog="0.25" x="740" y="610" tier="2" placement="on land pocket"/>
+    <node id="fungi" label="Fungi" kind="taxon" confidence="high" fog="0.25" x="760" y="420" tier="2" placement="multicellular pocket"/>
+  </nodes>
+
+  <edges>
+    <!-- tri-domain adjacency backbone -->
+    <edge from="eukaryota" to="sar" type="taxonomy" w="0.8"/>
+    <edge from="eukaryota" to="opisthokonta" type="taxonomy" w="0.8"/>
+    <edge from="eukaryota" to="archaeplastida" type="taxonomy" w="0.8"/>
+
+    <!-- SAR to alveolata -->
+    <edge from="sar" to="alveolata" type="taxonomy" w="0.8"/>
+    <edge from="alveolata" to="ciliophora" type="taxonomy" w="0.75"/>
+    <edge from="ciliophora" to="oligohymenophorea" type="taxonomy" w="0.6"/>
+    <edge from="oligohymenophorea" to="hymenostomatida" type="taxonomy" w="0.55"/>
+    <edge from="hymenostomatida" to="tetrahymenidae" type="taxonomy" w="0.55"/>
+    <edge from="tetrahymenidae" to="tetrahymena" type="taxonomy" w="0.65"/>
+    <edge from="tetrahymena" to="t_thermophila" type="taxonomy" w="0.7"/>
+
+    <!-- Rumen grouping -->
+    <edge from="ciliophora" to="rumen_protozoa" type="overlay" w="0.35"/>
+    <edge from="rumen_protozoa" to="entodinium" type="taxonomy" w="0.55"/>
+    <edge from="rumen_protozoa" to="epidinium" type="taxonomy" w="0.55"/>
+    <edge from="rumen_protozoa" to="isotricha" type="taxonomy" w="0.55"/>
+    <edge from="rumen_protozoa" to="dasytricha" type="taxonomy" w="0.55"/>
+
+    <!-- Multicellular pockets -->
+    <edge from="opisthokonta" to="animals" type="taxonomy" w="0.6"/>
+    <edge from="opisthokonta" to="fungi" type="taxonomy" w="0.6"/>
+    <edge from="archaeplastida" to="plants" type="taxonomy" w="0.6"/>
+  </edges>
+
+  <patches>
+    <!-- paste new patches here -->
+  </patches>
+
+</atlas>

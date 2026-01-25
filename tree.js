@@ -2,7 +2,11 @@
    - Canvas pan/zoom
    - Fly to labels
    - Curated taxa pinned to canopy
-   - Demo coverage overlay (placeholder)
+   - Coverage overlays (demo_struct + rainbow + mito)
+   - White background
+   - Pulse toggle (sticky on/off)
+   - Highlight path from origin to selection + pulsating branch
+   - Rings around selected organism (slow, gently random)
 */
 
 const canvas = document.getElementById('c');
@@ -26,6 +30,30 @@ const search = document.getElementById('search');
 
 let layerMode = layerSel.value;
 
+// ---- Pulse + selection state
+let pulseEnabled = true;
+let selectedLabel = null;           // currently focused label
+let selectedPathKeys = new Set();   // keys along root->selection path
+let parentOf = new Map();           // childKey -> {k: parentKey, _d: depth}
+
+function ptKey(x,y){
+  const q = (n) => Math.round(n * 10) / 10; // quantize
+  return `${q(x)},${q(y)}`;
+}
+
+function computePathKeys(x,y){
+  const start = ptKey(x,y);
+  const out = new Set();
+  let cur = start;
+  let guard = 0;
+  while(cur && guard++ < 5000){
+    out.add(cur);
+    const rec = parentOf.get(cur);
+    cur = rec ? rec.k : null;
+  }
+  return out;
+}
+
 // ---- UI wiring
 spinBtn.addEventListener('click', () => {
   const on = header.classList.toggle('spinOn');
@@ -44,16 +72,25 @@ layerSel.addEventListener('change', () => {
 });
 
 document.getElementById('homeBtn').addEventListener('click', () => flyToLabel('life'));
+
 document.getElementById('flySelected').addEventListener('click', () => {
   const t = TAXA.find(x => x.key === taxaSelect.value);
   if(t) flyToLabel(t.label);
 });
-document.getElementById('pulseSelected').addEventListener('click', () => {
-  const t = TAXA.find(x => x.key === taxaSelect.value);
-  if(!t) return;
-  const L = labels.find(n => n.text === t.label);
-  if(L) pulseAt(L.x, L.y, true);
-});
+
+// Pulse toggle button (sticky)
+const pulseBtn = document.getElementById('pulseSelected');
+if(pulseBtn){
+  // if index.html sets it, keep it; otherwise default to ON
+  pulseBtn.setAttribute('aria-pressed', String(true));
+  pulseBtn.textContent = 'Pulse: ON';
+  pulseBtn.addEventListener('click', () => {
+    pulseEnabled = !pulseEnabled;
+    pulseBtn.setAttribute('aria-pressed', String(pulseEnabled));
+    pulseBtn.textContent = pulseEnabled ? 'Pulse: ON' : 'Pulse: OFF';
+    if(!pulseEnabled) pulses = [];
+  });
+}
 
 document.querySelectorAll('[data-fly]').forEach(b => {
   b.addEventListener('click', () => flyToLabel(b.getAttribute('data-fly')));
@@ -106,7 +143,7 @@ let last = { x:0, y:0 };
 let pulses = []; // {x,y,t0,soft}
 
 // ---- Data
-let segments = []; // {x1,y1,x2,y2, depth, clade, coverage}
+let segments = []; // {x1,y1,x2,y2, depth, clade, coverage, k1, k2}
 let labels   = []; // {x,y,text, kind, coverage}
 
 const cladeCoverage = {
@@ -140,14 +177,27 @@ function randn(){
 function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
 function lerp(a,b,t){ return a + (b-a)*t; }
 function lerpPt(p,q,t){ return { x: lerp(p.x,q.x,t), y: lerp(p.y,q.y,t) }; }
+
 function addSeg(x1,y1,x2,y2,depth,clade,coverage){
-  segments.push({ x1,y1,x2,y2, depth, clade, coverage });
+  const k1 = ptKey(x1,y1);
+  const k2 = ptKey(x2,y2);
+
+  segments.push({ x1,y1,x2,y2, depth, clade, coverage, k1, k2 });
+
+  // Prefer the shallowest parent assignment
+  const prev = parentOf.get(k2);
+  if(!prev || depth < prev._d){
+    parentOf.set(k2, { k: k1, _d: depth });
+  }
 }
 
 // ---- Build fractal phylogeny-like tree
 function buildTree(){
   segments = [];
   labels = [];
+  parentOf = new Map();
+  selectedPathKeys = new Set();
+  selectedLabel = null;
 
   const trunkLen = 900;
   const origin = { x: 0, y: 320 };
@@ -174,6 +224,12 @@ function buildTree(){
   labels.push({ x: forkBase.x - 80, y: forkBase.y - 30, text:"Eukaryota", kind:"clade", coverage: cladeCoverage.Eukaryota });
 
   pinTaxa();
+
+  // Default selection = life
+  selectedLabel = labels.find(l => l.text === "life") || null;
+  if(selectedLabel){
+    selectedPathKeys = computePathKeys(selectedLabel.x, selectedLabel.y);
+  }
 }
 
 function branch(x, y, ang, len, depth, clade){
@@ -332,13 +388,16 @@ function startFly(x,y,z,name){
   targetCam.y = y;
   targetCam.z = z;
   hudWhere.textContent = `Tree: ${name}`;
-  pulseAt(x,y,true);
+  if(pulseEnabled) pulseAt(x,y,true);
 }
+
 function flyToLabel(name){
   const q = (name || '').trim();
   if(!q) return;
 
   if(q.toLowerCase() === 'life'){
+    selectedLabel = labels.find(l => l.text === "life") || null;
+    selectedPathKeys = selectedLabel ? computePathKeys(selectedLabel.x, selectedLabel.y) : new Set();
     startFly(0, -320, 0.35, 'life');
     return;
   }
@@ -352,9 +411,12 @@ function flyToLabel(name){
     const map = { animals:'Metazoa', plants:'Viridiplantae', mammals:'Mammalia' };
     const alt = map[q.toLowerCase()];
     if(alt) return flyToLabel(alt);
-    pulseAt(cam.x, cam.y, false);
+    if(pulseEnabled) pulseAt(cam.x, cam.y, false);
     return;
   }
+
+  selectedLabel = L;
+  selectedPathKeys = computePathKeys(L.x, L.y);
 
   const z = (L.kind === 'taxon') ? 1.4 : 0.85;
   startFly(L.x, L.y, z, L.text);
@@ -408,12 +470,18 @@ function draw(){
   cam.x = lerp(cam.x, targetCam.x, 0.08);
   cam.y = lerp(cam.y, targetCam.y, 0.08);
   cam.z = lerp(cam.z, targetCam.z, 0.08);
-
   hudZoom.textContent = `Zoom: ${cam.z.toFixed(2)}`;
 
-  // background
-  ctx.fillStyle = '#07090d';
+  // background: WHITE
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // if pulse disabled, no ambient ripples
+  if(!pulseEnabled) pulses = [];
+
+  const now = performance.now();
+  const breathe = 0.55 + 0.45*Math.sin(now*0.0012); // slow
+  const pathAlpha = 0.28 + 0.22*breathe;
 
   // branches
   for(const s of segments){
@@ -424,16 +492,36 @@ function draw(){
     if((p1.x < -60 && p2.x < -60) || (p1.x > r.width+60 && p2.x > r.width+60) ||
        (p1.y < -60 && p2.y < -60) || (p1.y > r.height+60 && p2.y > r.height+60)) continue;
 
-    const baseW = Math.max(0.6, 3.2 - s.depth*0.22);
-    const w = baseW * Math.pow(1/cam.z, 0.15);
+    const baseW = Math.max(0.6, 3.0 - s.depth*0.20);
+    let w = baseW * Math.pow(1/cam.z, 0.12);
 
-    let stroke = 'rgba(210,225,255,0.18)';
+    const onPath = (selectedPathKeys && (selectedPathKeys.has(s.k2) || selectedPathKeys.has(s.k1)));
+
+    // default: soft graphite on white
+    let stroke = 'rgba(30,40,55,0.16)';
+
+    // layers
     if(layerMode === 'demo_struct'){
       const cov = (s.coverage ?? 0.3);
       const col = colorForCoverage(cov);
-      stroke = (s.depth < 3)
-        ? 'rgba(210,225,255,0.16)'
-        : col.replace('rgb','rgba').replace(')', `,${0.10 + 0.10*Math.min(1,cam.z/1.2)})`);
+      stroke = col.replace('rgb','rgba').replace(')',`,${0.18})`);
+    } else if(layerMode === 'rainbow'){
+      const baseHue =
+        (s.clade === 'Eukaryota') ? 120 :
+        (s.clade === 'Bacteria')  ? 210 :
+        (s.clade === 'Archaea')   ? 170 : 260;
+      const hue = (baseHue + s.depth*16) % 360;
+      stroke = `hsla(${hue}, 45%, 45%, 0.16)`; // muted rainbow
+    } else if(layerMode === 'mito'){
+      // schematic landmark: eukaryote canopy gets a green wash
+      const isEuk = (s.clade === 'Eukaryota');
+      stroke = isEuk ? 'rgba(47,168,111,0.18)' : 'rgba(30,40,55,0.14)';
+    }
+
+    // selection path override (pulsing)
+    if(onPath){
+      stroke = `rgba(47,107,255,${pathAlpha})`;
+      w *= (1.35 + 0.25*breathe);
     }
 
     ctx.beginPath();
@@ -445,7 +533,7 @@ function draw(){
     ctx.stroke();
   }
 
-  // labels
+  // labels (dark on white)
   for(const L of labels){
     const p = worldToScreen(L.x, L.y);
     if(p.x < -120 || p.x > r.width+120 || p.y < -120 || p.y > r.height+120) continue;
@@ -454,29 +542,35 @@ function draw(){
     const show = isTaxon ? (cam.z > 0.35) : (cam.z > 0.20);
     if(!show) continue;
 
-    const alpha = isTaxon ? clamp((cam.z - 0.25)/1.2, 0.0, 1.0) : clamp((cam.z - 0.12)/0.9, 0.0, 0.7);
+    const alpha = isTaxon
+      ? clamp((cam.z - 0.25)/1.2, 0.0, 1.0)
+      : clamp((cam.z - 0.12)/0.9, 0.0, 0.7);
 
+    // dot
     ctx.beginPath();
     ctx.arc(p.x, p.y, isTaxon ? 2.6 : 2.0, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(233,233,233,${0.55*alpha})`;
+    ctx.fillStyle = `rgba(10,14,18,${0.40*alpha})`;
     ctx.fill();
 
+    // text
     ctx.font = `12px ${getCss('--mono')}`;
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = `rgba(233,233,233,${0.70*alpha})`;
+    ctx.fillStyle = `rgba(10,14,18,${0.62*alpha})`;
     ctx.fillText(L.text, p.x + 8, p.y);
 
+    // coverage tick for taxa in demo_struct
     if(layerMode === 'demo_struct' && isTaxon){
       const cov = clamp(L.coverage ?? 0.3, 0, 1);
       const col = colorForCoverage(cov);
       const wtxt = ctx.measureText(L.text).width;
       ctx.fillStyle = col;
+      ctx.globalAlpha = 0.7 * alpha;
       ctx.fillRect(p.x + 8 + wtxt + 8, p.y - 4, 10, 8);
+      ctx.globalAlpha = 1;
     }
   }
 
-  // pulses
-  const now = performance.now();
+  // pulses (kept subtle on white)
   pulses = pulses.filter(P => now - P.t0 < 1100);
   for(const P of pulses){
     const p = worldToScreen(P.x, P.y);
@@ -488,14 +582,33 @@ function draw(){
     ctx.beginPath();
     ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = `rgba(106,169,255,${0.22*a})`;
+    ctx.strokeStyle = `rgba(47,107,255,${0.18*a})`;
     ctx.stroke();
 
     ctx.beginPath();
     ctx.arc(p.x, p.y, rad*0.45, 0, Math.PI*2);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = `rgba(106,169,255,${0.18*a})`;
+    ctx.strokeStyle = `rgba(47,107,255,${0.14*a})`;
     ctx.stroke();
+  }
+
+  // Selected organism rings (slow, gently irregular)
+  if(selectedLabel && selectedLabel.kind === 'taxon' && pulseEnabled){
+    const p = worldToScreen(selectedLabel.x, selectedLabel.y);
+    const base = 16 + 10*Math.sin(now*0.00037 + 1.7);
+    const drift = 0.5 + 0.5*Math.sin(now*0.00023 + 3.1);
+
+    for(let i=0;i<3;i++){
+      const tt = now*0.00015 + i*1.9;
+      const rad = base + i*22 + 14*Math.sin(tt + i*0.6)*drift;
+      const a = 0.10 + 0.06*Math.sin(tt*1.7 + i);
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI*2);
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = `rgba(47,107,255,${a})`;
+      ctx.stroke();
+    }
   }
 
   requestAnimationFrame(draw);
@@ -506,6 +619,10 @@ resize();
 hudLayer.textContent = `Layer: ${layerMode}`;
 hudWhere.textContent = `Tree: life`;
 
+// Build + start at home
 buildTree();
-pulseAt(0, -320, true);
+selectedLabel = labels.find(l => l.text === "life") || null;
+selectedPathKeys = selectedLabel ? computePathKeys(selectedLabel.x, selectedLabel.y) : new Set();
+if(pulseEnabled) pulseAt(0, -320, true);
+
 draw();

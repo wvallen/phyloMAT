@@ -1,207 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>phyloMAT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <style>
-    body {
-      margin: 0;
-      padding: 24px;
-      font-family: "Courier New", Courier, monospace;
-      background: #ffffff;
-      color: #000000;
-    }
-
-    h1 {
-      font-size: 1.6em;
-      margin-bottom: 0.4em;
-      font-weight: normal;
-    }
-
-    section {
-      max-width: 720px;
-      margin-bottom: 2.5em;
-    }
-
-    p {
-      line-height: 1.6;
-      margin: 0.6em 0;
-    }
-
-    ul {
-      padding-left: 1.2em;
-    }
-
-    li {
-      margin: 0.4em 0;
-    }
-
-    a {
-      color: #000;
-      text-decoration: underline;
-    }
-
-    .controls {
-      margin-top: 1.5em;
-    }
-
-    button {
-      font-family: inherit;
-      font-size: 0.95em;
-      padding: 6px 10px;
-      margin-right: 8px;
-      background: #fff;
-      border: 1px solid #000;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #f2f2f2;
-    }
-
-    .canvas {
-      margin-top: 2em;
-      width: 100%;
-      height: 420px;
-      border: 1px solid #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.9em;
-    }
-
-    .quiet {
-      color: #555;
-    }
-  </style>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">
+        <h1>phyloMAT</h1>
+        <p class="desc">
+          Causal taxonomy atlas. Topological map built from selected lineages and transition clouds.
+          Time implicit. Uncertainty as fog. Atlas grows by XML patches.
+        </p>
+      </div>
 
-  <section>
-    <h1>phyloMAT</h1>
-    <p>
-      phyloMAT is a causal taxonomy atlas.
-      It represents selected biological lineages and transitions as a topological structure
-      organized by constraint, adjacency, and shared structure.
-    </p>
-    <p>
-      Time is implicit.
-      Uncertainty is represented spatially.
-      Coverage expands as additional regions are explored.
-    </p>
-  </section>
+      <div class="controls">
+        <button id="btnReset">Reset view</button>
+        <button id="btnExportPNG">Export PNG</button>
+        <button id="btnExportState">Export state.xml</button>
+        <button id="btnExportPrompt">Generate LLM prompt</button>
+      </div>
+    </header>
 
-  <section>
-    <h2>Instrument</h2>
-    <p>
-      The atlas is interactive and dynamic.
-      Elements briefly adjust when layers or regions change, then settle into a stable configuration.
-    </p>
-    <p>
-      The structure supports layered overlays, including protein motifs, domains, and other recurring biological patterns.
-    </p>
+    <section class="stage">
+      <canvas id="atlas" width="1200" height="720"></canvas>
 
-    <div class="controls">
-      <button onclick="exportState()">Export state.xml</button>
-      <button onclick="exportPrompt()">Generate LLM prompt</button>
-    </div>
+      <aside class="side">
+        <div class="panel">
+          <div class="row">
+            <div class="k">Loaded</div>
+            <div class="v"><span id="statNodes">0</span> nodes, <span id="statEdges">0</span> edges, <span id="statClouds">0</span> clouds</div>
+          </div>
+          <div class="row">
+            <div class="k">Hover</div>
+            <div class="v" id="hoverLabel">—</div>
+          </div>
+          <div class="row">
+            <div class="k">Selected</div>
+            <div class="v" id="selLabel">—</div>
+          </div>
+          <div class="row">
+            <div class="k">Pinned</div>
+            <div class="v" id="pinList">—</div>
+          </div>
+        </div>
 
-    <div class="canvas">
-      <span class="quiet">atlas view placeholder</span>
-    </div>
-  </section>
+        <div class="panel">
+          <div class="row">
+            <div class="k">Links</div>
+            <div class="v">
+              <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" rel="noreferrer">PubMed</a><br/>
+              <a href="https://w.oodland.com" target="_blank" rel="noreferrer">w.oodland</a><br/>
+              <a href="https://en.wikipedia.org/wiki/Tetrahymena_thermophila" target="_blank" rel="noreferrer">Tetrahymena</a>
+            </div>
+          </div>
+        </div>
 
-  <section>
-    <h2>FAQ</h2>
+        <div class="panel">
+          <div class="faq">
+            <h2>FAQ</h2>
+            <p><strong>Scope</strong><br/>Selected taxa and transitions explored so far. Coverage expands through additions.</p>
+            <p><strong>Motifs</strong><br/>Protein domains and other recurring biological patterns layer onto the atlas.</p>
+            <p><strong>Updates</strong><br/>Export state and a prompt. Offline LLM returns an XML patch. Patch is pasted into atlas.xml.</p>
+          </div>
+        </div>
+      </aside>
+    </section>
 
-    <p><strong>What does this map contain?</strong><br>
-      The atlas contains taxa and transitions that have been examined so far.
-      It is extended through manual iteration.
-    </p>
+    <footer class="foot">
+      <span class="quiet">Click selects. Shift-click pins. Drag pans. Wheel zooms.</span>
+    </footer>
+  </main>
 
-    <p><strong>What does motif analysis mean here?</strong><br>
-      Motifs include protein domains, regulatory structures, cellular capabilities,
-      and recurring biological strategies.
-    </p>
-
-    <p><strong>How is uncertainty handled?</strong><br>
-      Uncertainty is represented using fog and confidence values.
-    </p>
-
-    <p><strong>How is the atlas updated?</strong><br>
-      The atlas exports local context and a structured prompt.
-      A language model proposes an XML patch, which is reviewed and incorporated manually.
-    </p>
-  </section>
-
-  <section>
-    <h2>Links</h2>
-    <ul>
-      <li><a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank">PubMed</a></li>
-      <li><a href="https://w.oodland.com" target="_blank">w.oodland</a></li>
-      <li><a href="https://phylomat.org" target="_blank">phylomat.org</a></li>
-    </ul>
-  </section>
-
-  <script>
-    // Minimal state object
-    const state = {
-      camera: { x: 0, y: 0, zoom: 1 },
-      pinnedNodes: [],
-      activeLayers: ["taxonomy", "clouds"],
-      note: ""
-    };
-
-    function download(filename, text) {
-      const element = document.createElement("a");
-      element.setAttribute(
-        "href",
-        "data:text/plain;charset=utf-8," + encodeURIComponent(text)
-      );
-      element.setAttribute("download", filename);
-      element.style.display = "none";
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }
-
-    function exportState() {
-      const xml =
-`<phyloMATState>
-  <camera x="${state.camera.x}" y="${state.camera.y}" zoom="${state.camera.zoom}" />
-  <layers>${state.activeLayers.join(",")}</layers>
-  <pinned>${state.pinnedNodes.join(",")}</pinned>
-</phyloMATState>`;
-      download("state.xml", xml);
-    }
-
-    function exportPrompt() {
-      const prompt =
-`phyloMAT atlas expansion
-
-Context:
-This is a causal taxonomy atlas organized by constraint and adjacency.
-Time is implicit.
-Uncertainty is represented as fog.
-
-Task:
-Using the local atlas context, propose additional taxa or grouping nodes
-that extend this region.
-
-Rules:
-- keep time implicit
-- express uncertainty using confidence and fog
-- keep labels concise
-- output XML only
-
-Output:
-Return an XML patch containing node and edge additions.`;
-
-      download("prompt.txt", prompt);
-    }
-  </script>
-
+  <script type="module" src="./engine.js"></script>
 </body>
 </html>

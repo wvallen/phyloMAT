@@ -1,125 +1,184 @@
 :root{
   --ink:#000;
   --paper:#fff;
-  --line:#000;
-  --muted:#555;
-  --panel:#fff;
+  --panel: rgba(255,255,255,0.92);
+  --line: rgba(0,0,0,0.28);
+  --muted: rgba(0,0,0,0.62);
 }
 
 *{ box-sizing:border-box; }
 
-body{
+html, body{
   margin:0;
-  padding:18px;
-  background:var(--paper);
-  color:var(--ink);
-  font-family:"Courier New", Courier, monospace;
-  line-height:1.55;
-}
-
-.wrap{
-  max-width:1180px;
-  margin:0 auto;
-}
-
-.top{
-  display:flex;
-  gap:16px;
-  align-items:flex-start;
-  justify-content:space-between;
-  border-bottom:1px solid var(--line);
-  padding-bottom:14px;
-}
-
-h1{
-  margin:0 0 6px 0;
-  font-size:1.8rem;
-  font-weight:normal;
-}
-
-.desc{
-  margin:0;
-  max-width:720px;
-}
-
-.controls{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-
-button{
-  font-family:inherit;
-  font-size:0.95rem;
-  padding:6px 10px;
-  background:#fff;
-  border:1px solid var(--line);
-  cursor:pointer;
-}
-
-button:hover{ background:#f3f3f3; }
-
-.stage{
-  display:grid;
-  grid-template-columns: 1fr 320px;
-  gap:14px;
-  margin-top:14px;
-  align-items:start;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Courier New", Courier, monospace;
 }
 
 #atlas{
+  position:fixed;
+  inset:0;
   width:100%;
-  height:auto;
-  border:1px solid var(--line);
-  background:#fff;
+  height:100%;
   display:block;
+  background: var(--paper);
 }
 
-.side{
+.hud{
+  position:fixed;
+  left:14px;
+  right:14px;
+  top:12px;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  pointer-events:none; /* allow canvas interactions except on controls */
+}
+
+.brand, .controls, .rightbox{
+  pointer-events:auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  backdrop-filter: blur(6px);
+}
+
+.brand{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  min-width: 320px;
+}
+
+.logoWrap{
+  width:44px;
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.logoSpin{
+  width:44px;
+  height:44px;
+  animation: spin 10s linear infinite;
+  filter: grayscale(1);
+}
+
+@keyframes spin{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
+}
+
+.brandText .title{
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.brandText .subtitle{
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 520px;
+}
+
+.controls{
+  flex:1;
+  min-width: 520px;
+}
+
+.controls .row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-bottom:8px;
+  flex-wrap:wrap;
+}
+
+.controls .row:last-child{ margin-bottom:0; }
+
+.lbl{ color: var(--muted); width: 30px; }
+
+select, button, input[type="range"]{
+  font-family: inherit;
+}
+
+select{
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background:#fff;
+}
+
+button{
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  background:#fff;
+  cursor:pointer;
+}
+
+button:hover{ background:#f2f2f2; }
+
+.chk{
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sliders{
+  gap:14px;
+}
+
+.sl{
   display:flex;
   flex-direction:column;
-  gap:12px;
+  gap:4px;
+  min-width: 140px;
 }
 
-.panel{
-  border:1px solid var(--line);
-  padding:10px;
-  background:var(--panel);
+.sl label{
+  font-size: 12px;
+  color: var(--muted);
 }
 
-.row{
-  display:flex;
-  gap:8px;
-  margin-bottom:10px;
+.rightbox{
+  width: 260px;
 }
 
-.row:last-child{ margin-bottom:0; }
-
-.k{
-  width:84px;
-  color:var(--muted);
+.statline{
+  font-size: 13px;
+  margin-bottom: 6px;
 }
 
-.v{
-  flex:1;
-  word-break:break-word;
+.statline .k{
+  color: var(--muted);
+  display:inline-block;
+  width: 70px;
 }
 
-a{ color:var(--ink); text-decoration:underline; }
-
-.faq h2{
-  margin:0 0 10px 0;
-  font-size:1.05rem;
-  font-weight:normal;
-}
-
-.faq p{ margin:0 0 10px 0; }
-.faq p:last-child{ margin:0; }
-
-.foot{
+.links{
   margin-top:10px;
-  color:var(--muted);
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
-.quiet{ color:var(--muted); }
+.links a{
+  color: var(--ink);
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.footerHint{
+  position:fixed;
+  left:14px;
+  bottom:10px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events:none;
+}

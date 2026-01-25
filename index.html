@@ -6,49 +6,40 @@
   <title>phyloMAT</title>
   <style>
     :root{
-      /* Paper-first (white) */
-      --page:#ffffff;
+      --page:#fff;
       --ink:#000;
 
-      /* 2004 box chrome (kept, but not filling the universe) */
       --chrome:#d6d6d6;
       --chrome2:#ececec;
 
-      --bevelLight:#ffffff;
+      --bevelLight:#fff;
       --bevelMid:#b5b5b5;
       --bevelDark:#808080;
       --bevelDarker:#404040;
 
-      --accent:#0033cc;     /* classic link blue */
-      --branch:#0f7a2a;     /* highlight branch green */
-      --muted:#6b6b6b;
+      --accent:#0033cc;
+      --muted:#666;
 
       --mono:"Courier New", Courier, monospace;
       --sans:Tahoma, Verdana, Arial, sans-serif;
     }
-
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{
       margin:0;
-      background: var(--page);
-      color: var(--ink);
-      font-family: var(--sans);
-      font-size:13px;
+      background:var(--page);
+      color:var(--ink);
+      font-family:var(--sans);
+      font-size:14px; /* readability */
     }
-
-    /* centered fixed width, but on white page */
     .wrap{
-      width: 980px;
-      margin: 18px auto 40px auto;
+      width: 1040px;
+      margin: 18px auto 40px;
       padding: 10px;
       background: var(--chrome2);
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelDarker);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
     }
-
     .hdr{
       display:flex;
       gap:12px;
@@ -56,51 +47,23 @@
       padding: 10px;
       background: var(--chrome);
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelDarker);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
     }
-
     .logoBox{
-      width: 64px;
-      height: 64px;
+      width: 64px; height: 64px;
       background:#fff;
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
-      display:grid;
-      place-items:center;
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+      display:grid; place-items:center;
       flex:0 0 auto;
     }
-
-    /* EXACT supplied SVG spins */
-    .logo{
-      width: 52px;
-      height: 52px;
-      transform-origin: 50% 50%;
-    }
+    .logo{ width:52px; height:52px; transform-origin:50% 50%; }
     .spinOn .logo{ animation: spin 1.1s linear infinite; }
-    @keyframes spin{
-      from{ transform: rotate(0deg); }
-      to{ transform: rotate(360deg); }
-    }
+    @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
 
-    .brand{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .brand h1{
-      margin:0;
-      font-size: 22px;
-      letter-spacing: .4px;
-      font-family: var(--sans);
-    }
-    .brand small{
-      color:#222;
-      font-family: var(--mono);
-    }
+    .brand{ display:flex; flex-direction:column; gap:2px; }
+    .brand h1{ margin:0; font-size:24px; letter-spacing:.4px; }
+    .brand small{ font-family:var(--mono); color:#222; font-size:12px; }
 
     .spacer{ flex:1; }
 
@@ -110,132 +73,126 @@
       padding: 6px 10px;
       background:#e6e6e6;
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelDarker);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
       cursor:pointer;
       user-select:none;
+      white-space:nowrap;
     }
     .btn:active{
-      box-shadow:
-        inset -1px -1px 0 var(--bevelLight),
-        inset 1px 1px 0 var(--bevelDarker);
+      box-shadow: inset -1px -1px 0 var(--bevelLight), inset 1px 1px 0 var(--bevelDarker);
       transform: translate(1px,1px);
     }
-    .btn[aria-pressed="true"]{
-      background:#dfe8ff;
-      border-color:#3a57b8;
-    }
+    .btn[aria-pressed="true"]{ background:#dfe8ff; border-color:#3a57b8; }
 
     .grid{
       margin-top: 10px;
       display:grid;
-      grid-template-columns: 320px 1fr;
+      grid-template-columns: 340px 1fr;
       gap:10px;
     }
-
     .panel{
       background: var(--chrome);
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelDarker);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
       padding: 10px;
     }
     .panel h2{
-      margin:0 0 8px 0;
+      margin:0 0 10px 0;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: .8px;
-      color:#111;
+      font-family: var(--mono);
     }
 
-    .field{ margin-bottom:10px; }
     label{
       display:block;
-      margin-bottom:4px;
+      margin: 10px 0 4px;
       font-family: var(--mono);
-      color:#111;
+      font-size: 12px;
     }
-    select, input[type="text"]{
+    input[type="text"], select{
       width:100%;
       font-family: var(--mono);
-      font-size:12px;
-      padding:6px 7px;
+      font-size: 13px;
+      padding: 7px 8px;
       border: 2px solid var(--bevelDark);
       background:#fff;
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
     }
 
-    .disabledBox{
-      background:#f3f3f3;
-      color: var(--muted);
-      border: 2px dashed #9b9b9b;
-      padding:10px;
+    .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top: 8px; }
+    .row .btn{ flex:0 0 auto; }
+
+    .hint{
+      margin-top: 10px;
       font-family: var(--mono);
+      font-size: 12px;
+      color:#222;
+      background:#fff;
+      border: 2px solid var(--bevelDark);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+      padding: 8px;
       line-height:1.35;
     }
+    .hint .muted{ color: var(--muted); }
 
-    .statusline{
+    .tabs{
+      display:flex;
+      gap:6px;
+      margin-bottom: 8px;
+    }
+    .tab{
       font-family: var(--mono);
-      font-size:12px;
-      padding:8px;
+      font-size: 12px;
+      padding: 6px 10px;
+      background:#e6e6e6;
+      border: 2px solid var(--bevelDark);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
+      cursor:pointer;
+      user-select:none;
+    }
+    .tab.active{
+      background:#fff;
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+    }
+
+    .viewer{
       background:#fff;
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+      height: 650px; /* big, awe */
+      overflow:hidden;
+      position:relative;
     }
-    .statusline b{ color: var(--accent); }
+    iframe{
+      width:100%;
+      height:100%;
+      border:0;
+      display:block;
+      background:#fff;
+    }
+    .statusbar{
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px;
+      background:#fff;
+      border: 2px solid var(--bevelDark);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+    .statusbar a{ color: var(--accent); text-decoration:none; }
+    .statusbar a:hover{ text-decoration:underline; }
     .badge{
       display:inline-block;
       padding:2px 6px;
       border:1px solid #777;
       background:#f7f7f7;
       font-family: var(--mono);
-      font-size: 12px;
     }
-
-    /* Display + output */
-    .viewport{
-      background:#fff;
-      border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
-      height: 520px;     /* bigger tree */
-      overflow:hidden;
-      position:relative;
-    }
-    .viewport .caption{
-      position:absolute;
-      left:8px;
-      bottom:8px;
-      padding:4px 6px;
-      background: rgba(255,255,255,0.92);
-      border:1px solid #999;
-      font-family: var(--mono);
-      font-size: 11px;
-    }
-
-    .output{
-      margin-top:10px;
-      background:#fff;
-      border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
-      padding:10px;
-      font-family: var(--mono);
-      font-size:12px;
-      height: 180px;
-      overflow:auto;
-      white-space: pre-wrap;
-      line-height:1.35;
-    }
-    .output a{ color: var(--accent); }
 
     .ftr{
       margin-top:10px;
@@ -244,56 +201,11 @@
       align-items:center;
       font-family: var(--mono);
       font-size:12px;
-      color:#222;
     }
     .ftr a{ color: var(--accent); text-decoration:none; }
     .ftr a:hover{ text-decoration:underline; }
 
-    /* SVG tree styling */
-    svg{ width:100%; height:100%; display:block; }
-
-    .edge{
-      stroke:#000;
-      stroke-width:2;
-      fill:none;
-      shape-rendering:geometricPrecision;
-    }
-    .edge.faint{ stroke:#000; opacity:.18; }
-    .edge.mid{ opacity:.35; }
-
-    .edge.hot{
-      stroke: var(--branch);
-      stroke-width:4;
-      opacity:1;
-    }
-
-    .node{
-      fill:#fff;
-      stroke:#000;
-      stroke-width:2;
-    }
-    .node.faint{ opacity:.22; }
-    .node.hot{
-      fill:#fff;
-      stroke: var(--branch);
-      stroke-width:4;
-    }
-
-    .label{
-      font-family: var(--mono);
-      font-size: 12px;
-      fill:#000;
-    }
-    .label.faint{ opacity:.35; }
-
-    .cladeLabel{
-      font-family: var(--mono);
-      font-size: 12px;
-      fill:#000;
-      opacity:.65;
-    }
-
-    /* About modal (boxy) */
+    /* Small modal for About (no long preamble; just facts + links) */
     .modalBack{
       position: fixed;
       inset:0;
@@ -305,13 +217,11 @@
       z-index: 999;
     }
     .modal{
-      width: 860px;
+      width: 920px;
       max-width: 95vw;
       background: var(--chrome);
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelDarker);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelDarker);
       padding: 10px;
     }
     .modalTop{
@@ -322,39 +232,33 @@
       padding: 8px;
       background: var(--chrome2);
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
+      font-family: var(--mono);
     }
-    .modalTop b{ font-family: var(--mono); }
     .modalBody{
       margin-top:10px;
       background:#fff;
       border: 2px solid var(--bevelDark);
-      box-shadow:
-        inset 1px 1px 0 var(--bevelLight),
-        inset -1px -1px 0 var(--bevelMid);
+      box-shadow: inset 1px 1px 0 var(--bevelLight), inset -1px -1px 0 var(--bevelMid);
       padding: 10px;
       font-family: var(--mono);
       font-size: 12px;
-      line-height: 1.45;
+      line-height: 1.5;
       max-height: 70vh;
       overflow:auto;
     }
     .modalBody a{ color: var(--accent); }
-    .smallmuted{ color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="wrap" id="app">
+  <div class="wrap">
     <div class="hdr" id="header">
-      <div class="logoBox" title="phyloMAT logo (toggle Spin)">
-        <!-- EXACT SVG PROVIDED BY YOU -->
+      <div class="logoBox" title="phyloMAT">
+        <!-- Your SVG -->
         <svg class="logo"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="-100 -100 200 200"
-          aria-hidden="true"
-        >
+          aria-hidden="true">
           <g stroke="#1f1f1f" stroke-width="6" stroke-linecap="round">
             <line x1="0" y1="0" x2="0" y2="-52" />
             <line x1="0" y1="0" x2="36.8" y2="-36.8" />
@@ -387,196 +291,91 @@
       <div class="spacer"></div>
 
       <button class="btn" id="spinBtn" aria-pressed="true">Spin: ON</button>
-      <button class="btn" id="resetBtn">Reset View</button>
+      <button class="btn" id="resetBtn">Reset</button>
     </div>
 
     <div class="grid">
-      <!-- LEFT -->
+      <!-- Controls -->
       <div class="panel">
         <h2>Controls</h2>
 
-        <div class="field">
-          <label for="proteome">Predicted proteome (circa 2004)</label>
-          <select id="proteome"></select>
+        <label for="fly">Fly to taxon</label>
+        <input id="fly" type="text" placeholder="e.g., Homo sapiens, Bacteria, Aves, Arabidopsis" />
+
+        <div class="row">
+          <button class="btn" data-fly="life">Full</button>
+          <button class="btn" data-fly="Bacteria">Bacteria</button>
+          <button class="btn" data-fly="Archaea">Archaea</button>
+          <button class="btn" data-fly="Eukaryota">Eukaryota</button>
         </div>
 
-        <div class="field">
-          <label for="domain">Protein domain / motif</label>
-          <div class="disabledBox">
-            <b>COMING SOON.</b><br><br>
-            Motif search is disabled in this build on purpose. The interface is real; it won’t
-            fabricate results. When the engine is reintroduced, this box will accept conserved
-            motifs/domains and map their normalized distribution across curated proteomes.
+        <div class="row">
+          <button class="btn" data-fly="Metazoa">Animals</button>
+          <button class="btn" data-fly="Viridiplantae">Plants</button>
+          <button class="btn" data-fly="Fungi">Fungi</button>
+          <button class="btn" data-fly="Mammalia">Mammals</button>
+        </div>
+
+        <label>Proteome layer</label>
+        <select id="layer">
+          <option value="none">None</option>
+          <option value="pdb_taxonomy">Experimental structures (PDB) by taxonomy</option>
+        </select>
+
+        <div class="hint">
+          Mouse/trackpad to zoom. Drag to pan. Use “Fly to” for big jumps.
+          <div class="muted" style="margin-top:6px;">Motif search + APIs will plug into this frame later.</div>
+        </div>
+
+        <div class="hint" style="margin-top:10px;">
+          <span class="badge">Reference</span>
+          <div style="margin-top:6px;">
+            <a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">phyloMAT paper (PMID 15595740)</a><br/>
+            <a href="https://w.oodland.com" target="_blank" rel="noopener">w.oodland.com</a>
           </div>
-        </div>
-
-        <div class="field">
-          <label>Run</label>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn" id="fakeRunBtn" title="No analysis yet; updates the UI state honestly.">Map Domain</button>
-            <button class="btn" id="exportBtn" title="Downloads a text report of current view.">Export Report</button>
-          </div>
-        </div>
-
-        <div class="statusline" id="status">
-          Status: <b>READY</b> | Dataset: <span class="badge">curated 2004 proteomes</span>
         </div>
       </div>
 
-      <!-- RIGHT -->
+      <!-- Viewer -->
       <div class="panel">
         <h2>Display</h2>
 
-        <div class="viewport">
-          <!-- Bigger, fuller schematic tree. Labels are limited to the curated taxa. -->
-          <svg id="treeSvg" viewBox="0 0 1200 650" preserveAspectRatio="xMidYMid meet" role="img" aria-label="phyloMAT tree of life (schematic)">
-            <!-- ========== Backbone & unlabeled “fullness” ========== -->
-            <!-- Root trunk -->
-            <path id="e-root" class="edge" d="M120 325 C200 325, 260 325, 340 325" />
-
-            <!-- Domain split -->
-            <path id="e-archaea"  class="edge mid" d="M340 325 C430 280, 520 210, 600 160" />
-            <path id="e-bacteria" class="edge mid" d="M340 325 C460 325, 540 325, 640 325" />
-            <path id="e-euk"      class="edge mid" d="M340 325 C430 370, 520 440, 610 505" />
-
-            <text class="cladeLabel" x="520" y="150">Archaea</text>
-            <text class="cladeLabel" x="560" y="315">Bacteria</text>
-            <text class="cladeLabel" x="520" y="525">Eukaryota</text>
-
-            <!-- faint extra “fullness” branches (unlabeled) -->
-            <path class="edge faint" d="M600 160 C700 110, 760 95, 840 80" />
-            <path class="edge faint" d="M600 160 C710 190, 770 210, 860 230" />
-
-            <path class="edge faint" d="M640 325 C750 280, 820 265, 930 250" />
-            <path class="edge faint" d="M640 325 C760 350, 830 370, 940 395" />
-
-            <path class="edge faint" d="M610 505 C720 520, 800 560, 910 610" />
-            <path class="edge faint" d="M610 505 C710 470, 780 455, 880 440" />
-
-            <!-- Root node -->
-            <circle id="n-luca" class="node" cx="120" cy="325" r="14"></circle>
-            <text class="label" x="72" y="356">LUCA*</text>
-            <text class="cladeLabel" x="50" y="376" style="font-size:11px; opacity:.55;">*schematic</text>
-
-            <!-- ========== Archaea curated taxa ========== -->
-            <path id="e-a1" class="edge" d="M600 160 C690 150, 760 140, 830 135" />
-            <path id="e-a2" class="edge" d="M600 160 C690 175, 760 185, 830 200" />
-
-            <g id="node-mjann">
-              <circle class="node" cx="830" cy="135" r="10" />
-              <text class="label" x="850" y="139">M. jannaschii</text>
-            </g>
-
-            <g id="node-afulg">
-              <circle class="node" cx="830" cy="200" r="10" />
-              <text class="label" x="850" y="204">A. fulgidus</text>
-            </g>
-
-            <!-- ========== Bacteria curated taxa ========== -->
-            <!-- A fuller bacteria fan -->
-            <path id="e-b1" class="edge" d="M640 325 C740 300, 820 285, 890 275" />
-            <path id="e-b2" class="edge" d="M640 325 C740 315, 820 315, 900 315" />
-            <path id="e-b3" class="edge" d="M640 325 C740 335, 820 350, 900 365" />
-            <path id="e-b4" class="edge" d="M640 325 C740 355, 820 385, 900 420" />
-            <path id="e-b5" class="edge" d="M640 325 C740 270, 830 235, 930 210" />
-
-            <g id="node-ecoli">
-              <circle class="node" cx="890" cy="275" r="10" />
-              <text class="label" x="910" y="279">E. coli K-12</text>
-            </g>
-            <g id="node-bsub">
-              <circle class="node" cx="900" cy="315" r="10" />
-              <text class="label" x="920" y="319">B. subtilis</text>
-            </g>
-            <g id="node-mtb">
-              <circle class="node" cx="900" cy="365" r="10" />
-              <text class="label" x="920" y="369">M. tuberculosis</text>
-            </g>
-            <g id="node-hpyl">
-              <circle class="node" cx="900" cy="420" r="10" />
-              <text class="label" x="920" y="424">H. pylori</text>
-            </g>
-            <g id="node-tmar">
-              <circle class="node" cx="930" cy="210" r="10" />
-              <text class="label" x="950" y="214">T. maritima</text>
-            </g>
-
-            <!-- ========== Eukaryota curated taxa ========== -->
-            <!-- euk trunk to major clades -->
-            <path id="e-e1" class="edge" d="M610 505 C700 480, 780 465, 860 455" />   <!-- fungi-ish -->
-            <path id="e-e2" class="edge" d="M610 505 C700 505, 780 505, 880 505" />   <!-- protist-ish -->
-            <path id="e-e3" class="edge" d="M610 505 C700 545, 780 565, 880 585" />   <!-- plant-ish -->
-            <path id="e-e4" class="edge" d="M610 505 C700 520, 785 520, 865 525" />   <!-- metazoa hub -->
-
-            <!-- fungi -->
-            <g id="node-scer">
-              <circle class="node" cx="860" cy="455" r="10" />
-              <text class="label" x="880" y="459">S. cerevisiae</text>
-            </g>
-
-            <!-- protist -->
-            <g id="node-pfal">
-              <circle class="node" cx="880" cy="505" r="10" />
-              <text class="label" x="900" y="509">P. falciparum</text>
-            </g>
-
-            <!-- plant -->
-            <g id="node-athal">
-              <circle class="node" cx="880" cy="585" r="10" />
-              <text class="label" x="900" y="589">A. thaliana</text>
-            </g>
-
-            <!-- metazoa hub -->
-            <circle id="n-metazoa" class="node faint" cx="865" cy="525" r="8"></circle>
-
-            <!-- metazoa split -->
-            <path id="e-m1" class="edge" d="M865 525 C940 505, 990 495, 1040 490" />  <!-- worm -->
-            <path id="e-m2" class="edge" d="M865 525 C940 530, 990 540, 1040 550" />  <!-- fly -->
-            <path id="e-m3" class="edge" d="M865 525 C940 545, 1000 565, 1060 585" /> <!-- mammals hub -->
-
-            <g id="node-cele">
-              <circle class="node" cx="1040" cy="490" r="10" />
-              <text class="label" x="1060" y="494">C. elegans</text>
-            </g>
-
-            <g id="node-dmel">
-              <circle class="node" cx="1040" cy="550" r="10" />
-              <text class="label" x="1060" y="554">D. melanogaster</text>
-            </g>
-
-            <circle id="n-mammals" class="node faint" cx="1060" cy="585" r="8"></circle>
-            <path id="e-ma1" class="edge" d="M1060 585 C1100 570, 1120 560, 1140 552" />
-            <path id="e-ma2" class="edge" d="M1060 585 C1100 595, 1120 608, 1140 620" />
-
-            <g id="node-mmus">
-              <circle class="node" cx="1140" cy="552" r="10" />
-              <text class="label" x="1160" y="556">M. musculus</text>
-            </g>
-
-            <g id="node-hsap">
-              <circle class="node" cx="1140" cy="620" r="10" />
-              <text class="label" x="1160" y="624">H. sapiens</text>
-            </g>
-          </svg>
-
-          <div class="caption" id="caption">
-            View: Full Tree of Life (curated taxa visible)
-          </div>
+        <div class="tabs">
+          <div class="tab active" id="tabTree">Tree</div>
+          <div class="tab" id="tabStruct">Structures</div>
         </div>
 
-        <div class="output" id="output"></div>
+        <div class="viewer" id="treeView">
+          <!-- OneZoom noninteractive (their UI hidden) -->
+          <iframe id="treeFrame"
+            title="Tree of Life"
+            referrerpolicy="no-referrer"
+            src=""></iframe>
+        </div>
+
+        <div class="viewer" id="structView" style="display:none;">
+          <!-- RCSB taxonomy distributions -->
+          <iframe id="structFrame"
+            title="PDB taxonomy coverage"
+            referrerpolicy="no-referrer"
+            src="https://www.rcsb.org/stats/explore/taxonomy"></iframe>
+        </div>
+
+        <div class="statusbar">
+          <div>
+            <span class="badge" id="where">Tree: life</span>
+            <span style="margin-left:8px;" class="badge" id="mode">Layer: None</span>
+          </div>
+          <div>
+            <a href="#" id="aboutLink">About</a>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="ftr">
-      <div>
-        <span class="badge">Boxy interface</span>
-        <span style="margin-left:8px;">Modern build, classic shell</span>
-      </div>
-      <div>
-        <a href="#" id="aboutLink">About</a> |
-        <a href="#" id="helpLink">Help</a>
-      </div>
+      <div><span class="badge">phyloMAT</span> <span style="margin-left:8px;">Interactive evolution + proteome context</span></div>
+      <div><a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">PubMed</a></div>
     </div>
   </div>
 
@@ -592,440 +391,142 @@
   </div>
 
   <script>
-    // ==========================
-    // Curated taxa: dropdown + metadata
-    // ==========================
-    const TAXA = [
-      // Archaea
-      {
-        key: "mjann",
-        label: "Methanocaldococcus jannaschii",
-        short: "M. jannaschii",
-        lineageEdges: ["e-root","e-archaea","e-a1"],
-        cladeEdges:  ["e-a1","e-a2"], // highlight local archaea branch too
-        nodeId: "node-mjann",
-        proteome: { approx: "≈ 1.7k proteins", source: "https://www.uniprot.org/proteomes/UP000000805" }
-      },
-      {
-        key: "afulg",
-        label: "Archaeoglobus fulgidus",
-        short: "A. fulgidus",
-        lineageEdges: ["e-root","e-archaea","e-a2"],
-        cladeEdges:  ["e-a1","e-a2"],
-        nodeId: "node-afulg",
-        proteome: { approx: "≈ 2.4k proteins", source: "https://www.uniprot.org/proteomes/UP000000806" }
-      },
-
-      // Bacteria
-      {
-        key: "ecoli",
-        label: "Escherichia coli K-12",
-        short: "E. coli K-12",
-        lineageEdges: ["e-root","e-bacteria","e-b1"],
-        cladeEdges:  ["e-b1","e-b2","e-b3","e-b4","e-b5"],
-        nodeId: "node-ecoli",
-        proteome: { approx: "≈ 4.3k proteins", source: "https://www.uniprot.org/proteomes/UP000000625" }
-      },
-      {
-        key: "bsub",
-        label: "Bacillus subtilis",
-        short: "B. subtilis",
-        lineageEdges: ["e-root","e-bacteria","e-b2"],
-        cladeEdges:  ["e-b1","e-b2","e-b3","e-b4","e-b5"],
-        nodeId: "node-bsub",
-        proteome: { approx: "≈ 4.1k proteins", source: "https://www.uniprot.org/proteomes/UP000001570" }
-      },
-      {
-        key: "mtb",
-        label: "Mycobacterium tuberculosis",
-        short: "M. tuberculosis",
-        lineageEdges: ["e-root","e-bacteria","e-b3"],
-        cladeEdges:  ["e-b1","e-b2","e-b3","e-b4","e-b5"],
-        nodeId: "node-mtb",
-        proteome: { approx: "≈ 4.0k proteins", source: "https://www.uniprot.org/proteomes/UP000001584" }
-      },
-      {
-        key: "hpyl",
-        label: "Helicobacter pylori 26695",
-        short: "H. pylori",
-        lineageEdges: ["e-root","e-bacteria","e-b4"],
-        cladeEdges:  ["e-b1","e-b2","e-b3","e-b4","e-b5"],
-        nodeId: "node-hpyl",
-        proteome: { approx: "≈ 1.6k proteins", source: "https://www.uniprot.org/proteomes/UP000000429" }
-      },
-      {
-        key: "tmar",
-        label: "Thermotoga maritima",
-        short: "T. maritima",
-        lineageEdges: ["e-root","e-bacteria","e-b5"],
-        cladeEdges:  ["e-b1","e-b2","e-b3","e-b4","e-b5"],
-        nodeId: "node-tmar",
-        proteome: { approx: "≈ 1.9k proteins", source: "https://www.uniprot.org/proteomes/UP000000465" }
-      },
-
-      // Eukaryotes
-      {
-        key: "scer",
-        label: "Saccharomyces cerevisiae",
-        short: "S. cerevisiae",
-        lineageEdges: ["e-root","e-euk","e-e1"],
-        cladeEdges:  ["e-e1","e-e2","e-e3","e-e4","e-m1","e-m2","e-m3","e-ma1","e-ma2"],
-        nodeId: "node-scer",
-        proteome: { approx: "≈ 6.1k genes", source: "https://www.uniprot.org/proteomes/UP000002311" }
-      },
-      {
-        key: "pfal",
-        label: "Plasmodium falciparum",
-        short: "P. falciparum",
-        lineageEdges: ["e-root","e-euk","e-e2"],
-        cladeEdges:  ["e-e1","e-e2","e-e3","e-e4","e-m1","e-m2","e-m3","e-ma1","e-ma2"],
-        nodeId: "node-pfal",
-        proteome: { approx: "≈ 5.4k genes", source: "https://www.uniprot.org/proteomes/UP000001450" }
-      },
-      {
-        key: "athal",
-        label: "Arabidopsis thaliana",
-        short: "A. thaliana",
-        lineageEdges: ["e-root","e-euk","e-e3"],
-        cladeEdges:  ["e-e1","e-e2","e-e3","e-e4","e-m1","e-m2","e-m3","e-ma1","e-ma2"],
-        nodeId: "node-athal",
-        proteome: { approx: "≈ 27k genes", source: "https://www.uniprot.org/proteomes/UP000006548" }
-      },
-      {
-        key: "cele",
-        label: "Caenorhabditis elegans",
-        short: "C. elegans",
-        lineageEdges: ["e-root","e-euk","e-e4","e-m1"],
-        cladeEdges:  ["e-m1","e-m2","e-m3","e-ma1","e-ma2"],
-        nodeId: "node-cele",
-        proteome: { approx: "≈ 19.8k genes", source: "https://www.uniprot.org/proteomes/UP000001940" }
-      },
-      {
-        key: "dmel",
-        label: "Drosophila melanogaster",
-        short: "D. melanogaster",
-        lineageEdges: ["e-root","e-euk","e-e4","e-m2"],
-        cladeEdges:  ["e-m1","e-m2","e-m3","e-ma1","e-ma2"],
-        nodeId: "node-dmel",
-        proteome: { approx: "≈ 13.9k genes", source: "https://www.uniprot.org/proteomes/UP000000803" }
-      },
-      {
-        key: "mmus",
-        label: "Mus musculus",
-        short: "M. musculus",
-        lineageEdges: ["e-root","e-euk","e-e4","e-m3","e-ma1"],
-        cladeEdges:  ["e-ma1","e-ma2"],
-        nodeId: "node-mmus",
-        proteome: { approx: "≈ 21.9k genes", source: "https://www.uniprot.org/proteomes/UP000000589" }
-      },
-      {
-        key: "hsap",
-        label: "Homo sapiens",
-        short: "H. sapiens",
-        lineageEdges: ["e-root","e-euk","e-e4","e-m3","e-ma2"],
-        cladeEdges:  ["e-ma1","e-ma2"],
-        nodeId: "node-hsap",
-        proteome: { approx: "≈ 20.7k genes", source: "https://www.uniprot.org/proteomes/UP000005640" }
-      }
-    ];
-
-    // ==========================
-    // DOM
-    // ==========================
+    // --- header spin
     const header = document.getElementById('header');
     const spinBtn = document.getElementById('spinBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const proteomeSelect = document.getElementById('proteome');
-    const fakeRunBtn = document.getElementById('fakeRunBtn');
-    const exportBtn = document.getElementById('exportBtn');
-
-    const statusEl = document.getElementById('status');
-    const outputEl = document.getElementById('output');
-    const captionEl = document.getElementById('caption');
-
-    const svg = document.getElementById('treeSvg');
-
-    // Modal
-    const modalBack = document.getElementById('modalBack');
-    const closeModal = document.getElementById('closeModal');
-    const aboutBody = document.getElementById('aboutBody');
-
-    // Default viewBox
-    const FULL = { x:0, y:0, w:1200, h:650 };
-    let currentView = { ...FULL };
-
-    // ==========================
-    // Populate dropdown (with optgroups)
-    // ==========================
-    function buildDropdown(){
-      const groups = {
-        "Archaea": TAXA.filter(t => ["mjann","afulg"].includes(t.key)),
-        "Bacteria": TAXA.filter(t => ["ecoli","bsub","mtb","hpyl","tmar"].includes(t.key)),
-        "Eukaryotes": TAXA.filter(t => !["mjann","afulg","ecoli","bsub","mtb","hpyl","tmar"].includes(t.key)),
-      };
-
-      proteomeSelect.innerHTML = "";
-      for(const [gname, items] of Object.entries(groups)){
-        const og = document.createElement("optgroup");
-        og.label = gname;
-        items.forEach(t => {
-          const opt = document.createElement("option");
-          opt.value = t.key;
-          opt.textContent = t.label;
-          og.appendChild(opt);
-        });
-        proteomeSelect.appendChild(og);
-      }
-    }
-
-    // ==========================
-    // Status + output helpers
-    // ==========================
-    function setStatus(html, level='READY'){
-      statusEl.innerHTML = `Status: <b>${level}</b> | ${html}`;
-    }
-
-    function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-
-    function animateViewBox(to, ms=350){
-      const from = { ...currentView };
-      const t0 = performance.now();
-
-      function step(now){
-        const t = clamp((now - t0) / ms, 0, 1);
-        const e = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
-
-        const x = from.x + (to.x - from.x) * e;
-        const y = from.y + (to.y - from.y) * e;
-        const w = from.w + (to.w - from.w) * e;
-        const h = from.h + (to.h - from.h) * e;
-
-        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-
-        if(t < 1) requestAnimationFrame(step);
-        else currentView = { ...to };
-      }
-      requestAnimationFrame(step);
-    }
-
-    // ==========================
-    // Highlight lineage + clade branch
-    // ==========================
-    function clearHighlights(){
-      svg.querySelectorAll('.edge.hot').forEach(e => e.classList.remove('hot'));
-      svg.querySelectorAll('.node.hot').forEach(n => n.classList.remove('hot'));
-    }
-
-    function highlightTaxon(t){
-      clearHighlights();
-
-      // highlight edges: lineage + local clade
-      [...new Set([...(t.lineageEdges||[]), ...(t.cladeEdges||[])])].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.classList.add('hot');
-      });
-
-      // highlight node circle
-      const g = document.getElementById(t.nodeId);
-      const circle = g?.querySelector('circle');
-      if(circle) circle.classList.add('hot');
-    }
-
-    // ==========================
-    // Zoom boxes (hand-tuned for nicer compositions)
-    // ==========================
-    const ZOOM = {
-      mjann: {x:420,y:40,w:740,h:260},
-      afulg: {x:420,y:90,w:740,h:300},
-
-      ecoli: {x:520,y:165,w:660,h:360},
-      bsub:  {x:520,y:190,w:660,h:360},
-      mtb:   {x:520,y:230,w:680,h:380},
-      hpyl:  {x:520,y:270,w:680,h:380},
-      tmar:  {x:520,y:70,w:720,h:360},
-
-      scer:  {x:450,y:320,w:730,h:340},
-      pfal:  {x:480,y:360,w:720,h:320},
-      athal: {x:470,y:420,w:720,h:320},
-      cele:  {x:640,y:360,w:540,h:320},
-      dmel:  {x:640,y:400,w:540,h:320},
-      mmus:  {x:760,y:420,w:440,h:300},
-      hsap:  {x:760,y:460,w:440,h:300},
-    };
-
-    function setOutputForTaxon(t){
-      outputEl.innerHTML =
-`phyloMAT (restored interface, modern build)
-------------------------------------------
-Selection: <b>${t.label}</b>
-Proteome (tactful): ${t.proteome?.approx ? `<span class="badge">${t.proteome.approx}</span>` : ""}
-
-This build is intentionally honest:
-- Tree navigation and clade highlighting are functional
-- Motif search is disabled (coming soon)
-- No results are fabricated
-
-Proteome source:
-${t.proteome?.source ? `<a href="${t.proteome.source}" target="_blank" rel="noopener">UniProt proteome page</a>` : "(not linked)"}
-`;
-    }
-
-    function selectKey(key){
-      const t = TAXA.find(x => x.key === key);
-      if(!t) return;
-
-      highlightTaxon(t);
-
-      // zoom
-      const z = ZOOM[key] || FULL;
-      animateViewBox(z);
-
-      captionEl.textContent = `View: ${t.short} (lineage + clade highlighted)`;
-      setStatus(`Dataset: <span class="badge">curated 2004 proteomes</span> · Focus: <span class="badge">${t.short}</span>`, 'READY');
-
-      setOutputForTaxon(t);
-    }
-
-    function resetView(){
-      clearHighlights();
-      animateViewBox(FULL);
-      captionEl.textContent = 'View: Full Tree of Life (curated taxa visible)';
-      setStatus(`Dataset: <span class="badge">curated 2004 proteomes</span>`, 'READY');
-      outputEl.textContent =
-`phyloMAT (restored interface, modern build)
-------------------------------------------
-This is a UI restoration of phyloMAT: a motif/domain phylogenomics tool first described in 2004.
-
-Use the dropdown to navigate a curated “2004 predicted-proteome” species set.
-The tree is intentionally richer than the visible taxon list: the interface shows a fuller
-context while exposing only the taxa that fit the original constraint.`;
-    }
-
-    // ==========================
-    // Buttons
-    // ==========================
     header.classList.add('spinOn');
-
     spinBtn.addEventListener('click', () => {
       const on = header.classList.toggle('spinOn');
       spinBtn.setAttribute('aria-pressed', String(on));
       spinBtn.textContent = on ? 'Spin: ON' : 'Spin: OFF';
     });
 
-    resetBtn.addEventListener('click', resetView);
+    // --- OneZoom embed
+    // Use /life_noninteractive/ to hide OneZoom’s built-in UI.
+    // Pinpoint strings work like @TaxonName, optionally with anim parameters.
+    const OZ_ORIGIN = "https://www.onezoom.org";
+    const OZ_BASE = `${OZ_ORIGIN}/life_noninteractive/`;
 
-    proteomeSelect.addEventListener('change', (e) => selectKey(e.target.value));
+    function ozUrl(pinpoint) {
+      // anim=flight-3 gives a dramatic but not sluggish motion
+      // cols=AT keeps default coloring; you can tweak later via OneZoom URL options.
+      if (!pinpoint || pinpoint === "life") return `${OZ_BASE}?anim=flight-3`;
+      return `${OZ_BASE}@${encodeURIComponent(pinpoint)}?anim=flight-3`;
+    }
 
-    fakeRunBtn.addEventListener('click', () => {
-      setStatus('Motif engine disconnected (by design).', 'NOTE');
-      outputEl.textContent =
-`Command received: Map Domain
-----------------------------
-Motif engine status: DISCONNECTED (coming soon)
+    const treeFrame = document.getElementById('treeFrame');
+    const where = document.getElementById('where');
+    const mode = document.getElementById('mode');
 
-This build does not generate synthetic “hits.”
-When the engine returns, this button will:
-- scan curated proteomes for conserved motifs/domains
-- normalize distribution by proteome size
-- project presence/absence onto the tree
-- export full proteins or extracted motif sequences`;
+    function flyTo(pinpoint){
+      treeFrame.src = ozUrl(pinpoint);
+      where.textContent = `Tree: ${pinpoint || "life"}`;
+    }
+
+    // initial load
+    flyTo("life");
+
+    // quick buttons
+    document.querySelectorAll('[data-fly]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.getAttribute('data-fly');
+        flyTo(p === "life" ? "life" : p);
+      });
     });
 
-    exportBtn.addEventListener('click', () => {
-      const blob = new Blob([outputEl.textContent], { type:'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'phyloMAT_report.txt';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setStatus('Exported: <span class="badge">phyloMAT_report.txt</span>', 'NOTE');
+    // free-text fly
+    const flyInput = document.getElementById('fly');
+    flyInput.addEventListener('keydown', (e) => {
+      if(e.key !== 'Enter') return;
+      const q = (flyInput.value || "").trim();
+      if(!q) return;
+      flyTo(q);
     });
 
-    // ==========================
-    // About & Help
-    // ==========================
+    // reset
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      flyInput.value = "";
+      document.getElementById('layer').value = "none";
+      mode.textContent = "Layer: None";
+      document.getElementById('tabTree').click();
+      flyTo("life");
+    });
+
+    // tabs
+    const tabTree = document.getElementById('tabTree');
+    const tabStruct = document.getElementById('tabStruct');
+    const treeView = document.getElementById('treeView');
+    const structView = document.getElementById('structView');
+
+    tabTree.addEventListener('click', () => {
+      tabTree.classList.add('active');
+      tabStruct.classList.remove('active');
+      treeView.style.display = "block";
+      structView.style.display = "none";
+    });
+
+    tabStruct.addEventListener('click', () => {
+      tabStruct.classList.add('active');
+      tabTree.classList.remove('active');
+      treeView.style.display = "none";
+      structView.style.display = "block";
+    });
+
+    // layer selector (right now, it routes you to a real structural view)
+    const layer = document.getElementById('layer');
+    layer.addEventListener('change', () => {
+      const v = layer.value;
+      if(v === "pdb_taxonomy"){
+        mode.textContent = "Layer: PDB taxonomy";
+        tabStruct.click();
+      } else {
+        mode.textContent = "Layer: None";
+        tabTree.click();
+      }
+    });
+
+    // About modal: short, factual, link-forward
+    const modalBack = document.getElementById('modalBack');
+    const aboutBody = document.getElementById('aboutBody');
+
     function openModal(html){
       aboutBody.innerHTML = html;
       modalBack.style.display = "flex";
       modalBack.setAttribute("aria-hidden","false");
     }
-    function closeIt(){
+    function closeModal(){
       modalBack.style.display = "none";
       modalBack.setAttribute("aria-hidden","true");
     }
-    closeModal.addEventListener('click', closeIt);
-    modalBack.addEventListener('click', (e) => { if(e.target === modalBack) closeIt(); });
-    window.addEventListener('keydown', (e) => { if(e.key === "Escape") closeIt(); });
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    modalBack.addEventListener('click', (e) => { if(e.target === modalBack) closeModal(); });
+    window.addEventListener('keydown', (e) => { if(e.key === "Escape") closeModal(); });
 
     document.getElementById('aboutLink').addEventListener('click', (e) => {
       e.preventDefault();
-
-      const taxaList = TAXA.map(t => {
-        const src = t.proteome?.source ? `<a href="${t.proteome.source}" target="_blank" rel="noopener">${t.short}</a>` : t.short;
-        const approx = t.proteome?.approx ? ` <span class="smallmuted">(${t.proteome.approx})</span>` : "";
-        return `• ${src}${approx}`;
-      }).join("<br>");
-
       openModal(`
-<b>What phyloMAT is</b><br>
-phyloMAT is a motif/domain phylogenomics interface: it was designed to scan curated predicted proteome sets for proteins containing highly conserved amino acid motifs or domains, then organize those results for evolutionary interpretation across the three domains of life.<br><br>
+<b>phyloMAT</b><br><br>
+phyloMAT is an evolution-first interface for proteome-scale questions: where motifs/domains concentrate, where they fracture, and where they appear independently across deep time.<br><br>
 
-The original tool emphasized practical outputs: downloadable full-protein sequences or extracted motif/domain sequences, normalized distribution tables (by proteome size), and tree reconstruction (e.g., neighbor-joining) from aligned motif/domain sequences.<br><br>
+<b>Paper</b><br>
+<a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">PubMed (PMID 15595740)</a><br><br>
 
-<b>This 2026 restoration</b><br>
-This site rebuilds the interface and interaction model first, while keeping the behavior honest. You can navigate a curated species set and see lineage/clade highlighting on a fuller tree context. Motif scanning and result generation will be reintroduced as a separate, verifiable engine once the dataset and outputs are ready.<br><br>
+<b>Tree viewer</b><br>
+This build embeds the full interactive Tree of Life from OneZoom.<br>
+<a href="https://www.onezoom.org/" target="_blank" rel="noopener">onezoom.org</a><br><br>
 
-<b>Primary reference</b><br>
-• <a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">Phylomat: an automated protein motif analysis tool for phylogenomics (PubMed PMID: 15595740)</a><br><br>
+<b>Structure coverage</b><br>
+The “Structures” tab shows PDB taxonomy distributions from RCSB PDB.<br>
+<a href="https://www.rcsb.org/stats/explore/taxonomy" target="_blank" rel="noopener">rcsb.org taxonomy stats</a><br><br>
 
 <b>Project context</b><br>
-• <a href="https://w.oodland.com" target="_blank" rel="noopener">w.oodland.com</a> (notes, builds, and the broader ecosystem that this restoration lives inside)<br><br>
+<a href="https://w.oodland.com" target="_blank" rel="noopener">w.oodland.com</a><br><br>
 
-<b>Curated “2004 predicted proteomes” species set</b><br>
-${taxaList}<br><br>
-
-<b>Proteome sources</b><br>
-Proteome sizes and links above point to UniProt proteomes (a stable modern reference point). For organism-centric portals often used in practice, see:<br>
-• <a href="https://www.uniprot.org/proteomes/" target="_blank" rel="noopener">UniProt Proteomes</a><br>
-• <a href="https://www.ensembl.org" target="_blank" rel="noopener">Ensembl</a> (vertebrates and more)<br>
-• <a href="https://www.arabidopsis.org" target="_blank" rel="noopener">TAIR</a> (Arabidopsis)<br>
-• <a href="https://www.yeastgenome.org" target="_blank" rel="noopener">SGD</a> (yeast)<br>
-• <a href="https://wormbase.org" target="_blank" rel="noopener">WormBase</a> (C. elegans)<br>
-• <a href="https://flybase.org" target="_blank" rel="noopener">FlyBase</a> (Drosophila)<br>
-• <a href="https://plasmodb.org" target="_blank" rel="noopener">PlasmoDB</a> (Plasmodium)<br><br>
-
-<span class="smallmuted">
-Note: the “circa 2004” constraint here is conceptual: it reflects a deliberately limited curated set of predicted proteomes, mirroring the original practical hack (speed + tractability) while we rebuild the experience.
+<span style="color:#666;">
+Motif search + exportable results will be added as a verifiable analysis engine later.
 </span>
       `);
     });
-
-    document.getElementById('helpLink').addEventListener('click', (e) => {
-      e.preventDefault();
-      openModal(`
-<b>How to use this build</b><br>
-1) Choose a species from the dropdown (the curated “2004 predicted proteome” set).<br>
-2) The tree zooms and highlights (a) the full lineage path and (b) the local clade branch around that selection.<br>
-3) The output panel shows the selection plus a linked proteome reference.<br><br>
-
-<b>What’s intentionally not active yet</b><br>
-Motif search. The UI will not pretend to compute hits until the engine is real and the outputs are inspectable.<br><br>
-
-Tip: toggle <span class="badge">Spin</span> if you want maximum nostalgia with zero deception.
-      `);
-    });
-
-    // ==========================
-    // Init
-    // ==========================
-    buildDropdown();
-    resetView();
-    // default select human to match your screenshot vibe
-    proteomeSelect.value = "hsap";
-    selectKey("hsap");
   </script>
 </body>
 </html>

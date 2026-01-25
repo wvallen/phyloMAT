@@ -74,7 +74,7 @@
         <select id="taxaSelect"></select>
         <div class="row">
           <button class="btn" id="flySelected">Fly</button>
-          <button class="btn" id="pulseSelected">Pulse</button>
+          <button class="btn" id="pulseSelected" aria-pressed="true">>Pulse</button>
         </div>
         <div class="hint"><span class="pill">Labels</span> curated taxa + a few high clades. Everything else stays geometry.</div>
       </div>
@@ -82,10 +82,12 @@
       <div class="section">
         <h2>Layer</h2>
         <label for="layer">Coverage overlay</label>
-        <select id="layer">
-          <option value="none">None</option>
-          <option value="demo_struct">Structures mapped (demo)</option>
-        </select>
+          <select id="layer">
+            <option value="none">None</option>
+            <option value="demo_struct">Structures mapped (demo)</option>
+            <option value="rainbow">Muted rainbow (depth)</option>
+            <option value="mito">Mitochondria landmark (eukaryotes)</option>
+          </select>
         <div class="hint">Demo overlay placeholder until real counts are wired.</div>
       </div>
     </div>

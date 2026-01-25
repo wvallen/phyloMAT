@@ -1,79 +1,88 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>phyloMAT</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>phyloMAT 2.0</title>
+  <link rel="stylesheet" href="./styles.css"/>
 </head>
 <body>
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">
-        <h1>phyloMAT</h1>
-        <p class="desc">
-          Causal taxonomy atlas. Topological map built from selected lineages and transition clouds.
-          Time implicit. Uncertainty as fog. Atlas grows by XML patches.
-        </p>
+  <div class="hud">
+    <div class="brand">
+      <div class="logoWrap" title="phyloMAT 2.0">
+        <!-- Replace ./logo.svg with your real logo file (same filename) -->
+        <img class="logoSpin" src="./logo.svg" alt="phyloMAT logo"/>
+      </div>
+      <div class="brandText">
+        <div class="title">phyloMAT 2.0</div>
+        <div class="subtitle">causal taxonomy atlas · time implicit · uncertainty as fog · grows by XML patches</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <label class="lbl">Go</label>
+        <select id="gotoSelect">
+          <option value="tri">Tri-domain (overview)</option>
+          <option value="human">Human</option>
+          <option value="t_thermophila">Tetrahymena thermophila</option>
+          <option value="e_coli">E. coli</option>
+        </select>
+        <button id="btnGo">Go</button>
+        <button id="btnReset">Reset</button>
       </div>
 
-      <div class="controls">
-        <button id="btnReset">Reset view</button>
-        <button id="btnExportPNG">Export PNG</button>
-        <button id="btnExportState">Export state.xml</button>
-        <button id="btnExportPrompt">Generate LLM prompt</button>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="togClouds" checked/> Clouds</label>
+        <label class="chk"><input type="checkbox" id="togTaxEdges" checked/> Taxonomy</label>
+        <label class="chk"><input type="checkbox" id="togMesh" checked/> Mesh</label>
+        <label class="chk"><input type="checkbox" id="togLabels" checked/> Labels</label>
       </div>
-    </header>
 
-    <section class="stage">
-      <canvas id="atlas" width="1200" height="720"></canvas>
-
-      <aside class="side">
-        <div class="panel">
-          <div class="row">
-            <div class="k">Loaded</div>
-            <div class="v"><span id="statNodes">0</span> nodes, <span id="statEdges">0</span> edges, <span id="statClouds">0</span> clouds</div>
-          </div>
-          <div class="row">
-            <div class="k">Hover</div>
-            <div class="v" id="hoverLabel">—</div>
-          </div>
-          <div class="row">
-            <div class="k">Selected</div>
-            <div class="v" id="selLabel">—</div>
-          </div>
-          <div class="row">
-            <div class="k">Pinned</div>
-            <div class="v" id="pinList">—</div>
-          </div>
+      <div class="row sliders">
+        <div class="sl">
+          <label>Label size</label>
+          <input id="slLabel" type="range" min="10" max="22" value="14"/>
         </div>
-
-        <div class="panel">
-          <div class="row">
-            <div class="k">Links</div>
-            <div class="v">
-              <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" rel="noreferrer">PubMed</a><br/>
-              <a href="https://w.oodland.com" target="_blank" rel="noreferrer">w.oodland</a><br/>
-              <a href="https://en.wikipedia.org/wiki/Tetrahymena_thermophila" target="_blank" rel="noreferrer">Tetrahymena</a>
-            </div>
-          </div>
+        <div class="sl">
+          <label>Cloud opacity</label>
+          <input id="slCloud" type="range" min="0" max="100" value="55"/>
         </div>
-
-        <div class="panel">
-          <div class="faq">
-            <h2>FAQ</h2>
-            <p><strong>Scope</strong><br/>Selected taxa and transitions explored so far. Coverage expands through additions.</p>
-            <p><strong>Motifs</strong><br/>Protein domains and other recurring biological patterns layer onto the atlas.</p>
-            <p><strong>Updates</strong><br/>Export state and a prompt. Offline LLM returns an XML patch. Patch is pasted into atlas.xml.</p>
-          </div>
+        <div class="sl">
+          <label>Mesh density</label>
+          <input id="slMesh" type="range" min="0" max="100" value="40"/>
         </div>
-      </aside>
-    </section>
+        <div class="sl">
+          <label>Flow → lock</label>
+          <input id="slLock" type="range" min="10" max="200" value="70"/>
+        </div>
+      </div>
 
-    <footer class="foot">
-      <span class="quiet">Click selects. Shift-click pins. Drag pans. Wheel zooms.</span>
-    </footer>
-  </main>
+      <div class="row">
+        <button id="btnPNG">Export PNG</button>
+        <button id="btnState">Export state.xml</button>
+        <button id="btnPrompt">Generate LLM prompt</button>
+      </div>
+    </div>
+
+    <div class="rightbox">
+      <div class="statline"><span class="k">Loaded</span> <span id="statLoaded">—</span></div>
+      <div class="statline"><span class="k">Hover</span> <span id="statHover">—</span></div>
+      <div class="statline"><span class="k">Selected</span> <span id="statSel">—</span></div>
+      <div class="statline"><span class="k">Pinned</span> <span id="statPins">—</span></div>
+
+      <div class="links">
+        <a href="https://pubmed.ncbi.nlm.nih.gov" target="_blank" rel="noreferrer">PubMed</a>
+        <a href="https://w.oodland.com" target="_blank" rel="noreferrer">w.oodland</a>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="atlas"></canvas>
+
+  <div class="footerHint">
+    drag pans · wheel zooms · click selects · shift-click pins · double-click centers
+  </div>
 
   <script type="module" src="./engine.js"></script>
 </body>

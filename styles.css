@@ -1,22 +1,21 @@
 :root{
   --ink:#000;
   --paper:#fff;
-  --panel: rgba(255,255,255,0.92);
-  --line: rgba(0,0,0,0.28);
-  --muted: rgba(0,0,0,0.62);
+  --ui-bg: rgba(255,255,255,0.86);
+  --ui-border: rgba(0,0,0,0.55);
+  --muted: rgba(0,0,0,0.55);
+  --shadow: 0 8px 28px rgba(0,0,0,0.08);
 }
 
 *{ box-sizing:border-box; }
 
 html, body{
-  margin:0;
-  padding:0;
   width:100%;
   height:100%;
-  overflow:hidden;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: "Courier New", Courier, monospace;
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Courier New", Courier, monospace;
 }
 
 #atlas{
@@ -25,48 +24,44 @@ html, body{
   width:100%;
   height:100%;
   display:block;
-  background: var(--paper);
+  background:#fff;
 }
 
-.hud{
-  position:fixed;
-  left:14px;
-  right:14px;
-  top:12px;
-  display:flex;
-  gap:12px;
-  align-items:flex-start;
-  pointer-events:none; /* allow canvas interactions except on controls */
-}
-
-.brand, .controls, .rightbox{
-  pointer-events:auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  padding: 10px 12px;
-  backdrop-filter: blur(6px);
-}
-
+/* Top-left identity */
 .brand{
+  position:fixed;
+  top:16px;
+  left:16px;
   display:flex;
-  gap:10px;
   align-items:center;
-  min-width: 320px;
+  gap:10px;
+  padding:10px 12px;
+  background:var(--ui-bg);
+  border:1px solid var(--ui-border);
+  border-radius:12px;
+  box-shadow: var(--shadow);
+  user-select:none;
+  cursor:pointer;
 }
 
-.logoWrap{
-  width:44px;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.brandTitle{
+  font-size:16px;
+  letter-spacing:0.2px;
+}
+
+.brandSub{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:2px;
 }
 
 .logoSpin{
   width:44px;
   height:44px;
+  display:grid;
+  place-items:center;
+  opacity:0.95;
   animation: spin 10s linear infinite;
-  filter: grayscale(1);
 }
 
 @keyframes spin{
@@ -74,111 +69,124 @@ html, body{
   to{ transform: rotate(360deg); }
 }
 
-.brandText .title{
-  font-size: 20px;
-  line-height: 1.1;
+/* Top-right dock */
+.dock{
+  position:fixed;
+  top:16px;
+  right:16px;
+  width:360px;
+  max-width: calc(100vw - 32px);
+  background:var(--ui-bg);
+  border:1px solid var(--ui-border);
+  border-radius:12px;
+  box-shadow: var(--shadow);
+  padding:12px;
 }
 
-.brandText .subtitle{
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted);
-  max-width: 520px;
-}
-
-.controls{
-  flex:1;
-  min-width: 520px;
-}
-
-.controls .row{
+.dockRow{
   display:flex;
-  gap:10px;
-  align-items:center;
-  margin-bottom:8px;
-  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:10px;
 }
 
-.controls .row:last-child{ margin-bottom:0; }
-
-.lbl{ color: var(--muted); width: 30px; }
-
-select, button, input[type="range"]{
-  font-family: inherit;
-}
-
-select{
-  padding: 6px 8px;
-  border: 1px solid var(--line);
+.select{
+  flex:1;
+  font-family:inherit;
+  font-size:14px;
+  padding:7px 8px;
+  border:1px solid var(--ui-border);
   background:#fff;
+  border-radius:10px;
 }
 
-button{
-  padding: 6px 10px;
-  border: 1px solid var(--line);
+.btn{
+  font-family:inherit;
+  font-size:14px;
+  padding:7px 10px;
+  border:1px solid var(--ui-border);
   background:#fff;
+  border-radius:10px;
   cursor:pointer;
 }
 
-button:hover{ background:#f2f2f2; }
+.btn:hover{ background:#f3f3f3; }
+
+.dockGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:8px 10px;
+  margin:10px 0 12px 0;
+}
 
 .chk{
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.sliders{
-  gap:14px;
-}
-
-.sl{
   display:flex;
-  flex-direction:column;
-  gap:4px;
-  min-width: 140px;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:rgba(0,0,0,0.82);
 }
 
-.sl label{
-  font-size: 12px;
-  color: var(--muted);
+.chk input{ transform: translateY(1px); }
+
+.dockSliders{
+  border-top:1px solid rgba(0,0,0,0.12);
+  padding-top:10px;
+  margin-top:8px;
 }
 
-.rightbox{
-  width: 260px;
+.sliderRow{
+  display:grid;
+  grid-template-columns: 56px 1fr;
+  align-items:center;
+  gap:10px;
+  margin:8px 0;
 }
 
-.statline{
-  font-size: 13px;
-  margin-bottom: 6px;
+.sliderRow .k{
+  color:var(--muted);
+  font-size:12px;
 }
 
-.statline .k{
-  color: var(--muted);
-  display:inline-block;
-  width: 70px;
+.slider{
+  width:100%;
 }
 
-.links{
+.dockStats{
+  border-top:1px solid rgba(0,0,0,0.12);
+  padding-top:10px;
   margin-top:10px;
+}
+
+.stat{
   display:flex;
   gap:10px;
-  flex-wrap:wrap;
+  margin:6px 0;
+  font-size:13px;
 }
 
-.links a{
-  color: var(--ink);
-  text-decoration: underline;
-  font-size: 13px;
+.stat .k{
+  width:70px;
+  color:var(--muted);
 }
 
-.footerHint{
-  position:fixed;
-  left:14px;
-  bottom:10px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 12px;
-  pointer-events:none;
+.stat .v{
+  flex:1;
+  word-break:break-word;
+}
+
+.dockFoot{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:12px;
+}
+
+/* Mobile: dock becomes bottom sheet */
+@media (max-width: 860px){
+  .dock{
+    top:auto;
+    bottom:16px;
+    right:16px;
+    left:16px;
+    width:auto;
+  }
 }

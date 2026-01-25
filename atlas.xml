@@ -1,76 +1,103 @@
-<atlas version="1.0">
+<atlas version="2.0">
+
+  <meta>
+    <home id="tri" x="520" y="360" zoom="0.85"/>
+    <home id="human" x="905" y="360" zoom="1.25"/>
+    <home id="t_thermophila" x="300" y="140" zoom="1.35"/>
+    <home id="e_coli" x="200" y="520" zoom="1.35"/>
+  </meta>
 
   <clouds>
-    <cloud id="cloud_mito" label="mitochondrion acquisition" strength="0.9" x="320" y="330" r="260" drift="0.15"/>
-    <cloud id="cloud_plastid" label="plastid acquisition" strength="0.8" x="520" y="520" r="220" drift="0.12"/>
-    <cloud id="cloud_multi" label="multicellularity" strength="0.7" x="760" y="470" r="230" drift="0.10"/>
-    <cloud id="cloud_anaerobe" label="anaerobic niche" strength="0.6" x="420" y="170" r="190" drift="0.14"/>
-    <cloud id="cloud_land" label="on land" strength="0.55" x="860" y="600" r="210" drift="0.08"/>
+    <cloud id="cloud_mito" label="mitochondrion acquisition" strength="0.85" x="500" y="330" r="320" drift="0.18" color="50,120,200"/>
+    <cloud id="cloud_plastid" label="plastid acquisition" strength="0.75" x="640" y="570" r="260" drift="0.13" color="40,160,90"/>
+    <cloud id="cloud_multi" label="multicellularity" strength="0.70" x="850" y="440" r="280" drift="0.10" color="180,80,80"/>
+    <cloud id="cloud_anaerobe" label="anaerobic niche" strength="0.60" x="420" y="170" r="240" drift="0.16" color="140,100,170"/>
+    <cloud id="cloud_land" label="on land" strength="0.55" x="860" y="650" r="260" drift="0.08" color="180,140,60"/>
   </clouds>
 
   <nodes>
     <!-- Tier 1: tri-domain -->
-    <node id="bacteria" label="Bacteria" kind="taxon" confidence="high" fog="0.15" x="210" y="420" tier="1"/>
-    <node id="archaea" label="Archaea" kind="taxon" confidence="high" fog="0.18" x="260" y="240" tier="1"/>
-    <node id="eukaryota" label="Eukaryota" kind="taxon" confidence="high" fog="0.12" x="520" y="330" tier="1"/>
+    <node id="bacteria" label="Bacteria" kind="taxon" confidence="high" fog="0.14" x="220" y="520" tier="1"/>
+    <node id="archaea" label="Archaea" kind="taxon" confidence="high" fog="0.16" x="240" y="280" tier="1"/>
+    <node id="eukaryota" label="Eukaryota" kind="taxon" confidence="high" fog="0.12" x="520" y="360" tier="1"/>
 
-    <!-- Plates -->
-    <node id="sar" label="SAR" kind="taxon" confidence="high" fog="0.22" x="520" y="250" tier="2" placement="eukaryotic plate"/>
-    <node id="opisthokonta" label="Opisthokonta" kind="taxon" confidence="high" fog="0.22" x="760" y="320" tier="2" placement="eukaryotic plate"/>
-    <node id="archaeplastida" label="Archaeplastida" kind="taxon" confidence="high" fog="0.22" x="610" y="520" tier="2" placement="eukaryotic plate"/>
+    <!-- Major plates (kept minimal, but connected) -->
+    <node id="sar" label="SAR" kind="taxon" confidence="high" fog="0.20" x="520" y="240" tier="2" placement="eukaryotic plate"/>
+    <node id="opisthokonta" label="Opisthokonta" kind="taxon" confidence="high" fog="0.20" x="800" y="330" tier="2" placement="eukaryotic plate"/>
+    <node id="archaeplastida" label="Archaeplastida" kind="taxon" confidence="high" fog="0.20" x="650" y="560" tier="2" placement="eukaryotic plate"/>
+    <node id="amoebozoa" label="Amoebozoa" kind="taxon" confidence="medium" fog="0.28" x="640" y="320" tier="2" placement="eukaryotic plate"/>
 
-    <!-- Your focus: alveolata / ciliates -->
-    <node id="alveolata" label="Alveolata" kind="taxon" confidence="high" fog="0.28" x="450" y="185" tier="2" placement="ciliate region"/>
-    <node id="ciliophora" label="Ciliophora" kind="taxon" confidence="high" fog="0.22" x="420" y="120" tier="3"/>
-    <node id="oligohymenophorea" label="Oligohymenophorea" kind="taxon" confidence="medium" fog="0.35" x="370" y="85" tier="3"/>
-    <node id="hymenostomatida" label="Hymenostomatida" kind="taxon" confidence="medium" fog="0.35" x="330" y="68" tier="3"/>
-    <node id="tetrahymenidae" label="Tetrahymenidae" kind="taxon" confidence="medium" fog="0.35" x="295" y="58" tier="3"/>
-    <node id="tetrahymena" label="Tetrahymena" kind="taxon" confidence="high" fog="0.22" x="265" y="52" tier="3" placement="model anchor"/>
-    <node id="t_thermophila" label="T. thermophila" kind="exemplar" confidence="high" fog="0.14" x="238" y="48" tier="3" placement="model organism"/>
+    <!-- Alveolata / ciliates -->
+    <node id="alveolata" label="Alveolata" kind="taxon" confidence="high" fog="0.26" x="420" y="160" tier="2" placement="ciliate region"/>
+    <node id="ciliophora" label="Ciliophora" kind="taxon" confidence="high" fog="0.22" x="350" y="110" tier="3"/>
+    <node id="oligohymenophorea" label="Oligohymenophorea" kind="taxon" confidence="medium" fog="0.34" x="290" y="92" tier="3"/>
+    <node id="hymenostomatida" label="Hymenostomatida" kind="taxon" confidence="medium" fog="0.34" x="250" y="84" tier="3"/>
+    <node id="tetrahymenidae" label="Tetrahymenidae" kind="taxon" confidence="medium" fog="0.34" x="215" y="76" tier="3"/>
+    <node id="tetrahymena" label="Tetrahymena" kind="taxon" confidence="high" fog="0.22" x="185" y="70" tier="3" placement="model anchor"/>
+    <node id="t_thermophila" label="T. thermophila" kind="exemplar" confidence="high" fog="0.14" x="155" y="66" tier="3" placement="model organism"/>
 
     <!-- Rumen protozoa anchors -->
-    <node id="rumen_protozoa" label="rumen protozoa" kind="group" confidence="medium" fog="0.55" x="470" y="95" tier="3" placement="anaerobic niche"/>
-    <node id="entodinium" label="Entodinium" kind="taxon" confidence="medium" fog="0.45" x="520" y="70" tier="3"/>
-    <node id="epidinium" label="Epidinium" kind="taxon" confidence="medium" fog="0.45" x="565" y="82" tier="3"/>
-    <node id="isotricha" label="Isotricha" kind="taxon" confidence="medium" fog="0.45" x="520" y="120" tier="3"/>
-    <node id="dasytricha" label="Dasytricha" kind="taxon" confidence="medium" fog="0.45" x="565" y="125" tier="3"/>
+    <node id="rumen_protozoa" label="rumen protozoa" kind="group" confidence="medium" fog="0.55" x="520" y="120" tier="3" placement="anaerobic niche"/>
+    <node id="entodinium" label="Entodinium" kind="taxon" confidence="medium" fog="0.45" x="590" y="98" tier="3"/>
+    <node id="epidinium" label="Epidinium" kind="taxon" confidence="medium" fog="0.45" x="645" y="110" tier="3"/>
+    <node id="isotricha" label="Isotricha" kind="taxon" confidence="medium" fog="0.45" x="590" y="150" tier="3"/>
+    <node id="dasytricha" label="Dasytricha" kind="taxon" confidence="medium" fog="0.45" x="645" y="155" tier="3"/>
 
-    <!-- Orientation pins (few) -->
-    <node id="animals" label="Animals" kind="taxon" confidence="high" fog="0.25" x="870" y="320" tier="2" placement="multicellular pocket"/>
-    <node id="plants" label="Land plants" kind="taxon" confidence="high" fog="0.25" x="740" y="610" tier="2" placement="on land pocket"/>
-    <node id="fungi" label="Fungi" kind="taxon" confidence="high" fog="0.25" x="760" y="420" tier="2" placement="multicellular pocket"/>
+    <!-- Orientation anchors -->
+    <node id="animals" label="Animals" kind="taxon" confidence="high" fog="0.24" x="920" y="330" tier="2" placement="multicellular pocket"/>
+    <node id="fungi" label="Fungi" kind="taxon" confidence="high" fog="0.24" x="820" y="460" tier="2" placement="multicellular pocket"/>
+    <node id="plants" label="Land plants" kind="taxon" confidence="high" fog="0.24" x="760" y="690" tier="2" placement="on land pocket"/>
+
+    <!-- Species anchors -->
+    <node id="human" label="Human" kind="exemplar" confidence="high" fog="0.16" x="1010" y="350" tier="3" placement="anchor"/>
+    <node id="e_coli" label="E. coli" kind="exemplar" confidence="high" fog="0.16" x="120" y="560" tier="3" placement="anchor"/>
+
+    <!-- A couple bacterial group anchors to avoid “lonely E. coli” -->
+    <node id="proteobacteria" label="Proteobacteria" kind="taxon" confidence="medium" fog="0.34" x="170" y="620" tier="2"/>
+    <node id="firmicutes" label="Firmicutes" kind="taxon" confidence="medium" fog="0.34" x="70" y="490" tier="2"/>
   </nodes>
 
   <edges>
-    <!-- tri-domain adjacency backbone -->
-    <edge from="eukaryota" to="sar" type="taxonomy" w="0.8"/>
-    <edge from="eukaryota" to="opisthokonta" type="taxonomy" w="0.8"/>
-    <edge from="eukaryota" to="archaeplastida" type="taxonomy" w="0.8"/>
+    <!-- domain neighborhood edges (soft, atlas-level) -->
+    <edge from="archaea" to="eukaryota" type="context" w="0.18"/>
+    <edge from="bacteria" to="eukaryota" type="context" w="0.18"/>
+
+    <!-- euk plates -->
+    <edge from="eukaryota" to="sar" type="taxonomy" w="0.70"/>
+    <edge from="eukaryota" to="opisthokonta" type="taxonomy" w="0.70"/>
+    <edge from="eukaryota" to="archaeplastida" type="taxonomy" w="0.70"/>
+    <edge from="eukaryota" to="amoebozoa" type="taxonomy" w="0.55"/>
 
     <!-- SAR to alveolata -->
-    <edge from="sar" to="alveolata" type="taxonomy" w="0.8"/>
-    <edge from="alveolata" to="ciliophora" type="taxonomy" w="0.75"/>
-    <edge from="ciliophora" to="oligohymenophorea" type="taxonomy" w="0.6"/>
-    <edge from="oligohymenophorea" to="hymenostomatida" type="taxonomy" w="0.55"/>
-    <edge from="hymenostomatida" to="tetrahymenidae" type="taxonomy" w="0.55"/>
-    <edge from="tetrahymenidae" to="tetrahymena" type="taxonomy" w="0.65"/>
-    <edge from="tetrahymena" to="t_thermophila" type="taxonomy" w="0.7"/>
+    <edge from="sar" to="alveolata" type="taxonomy" w="0.70"/>
+    <edge from="alveolata" to="ciliophora" type="taxonomy" w="0.65"/>
+    <edge from="ciliophora" to="oligohymenophorea" type="taxonomy" w="0.50"/>
+    <edge from="oligohymenophorea" to="hymenostomatida" type="taxonomy" w="0.48"/>
+    <edge from="hymenostomatida" to="tetrahymenidae" type="taxonomy" w="0.48"/>
+    <edge from="tetrahymenidae" to="tetrahymena" type="taxonomy" w="0.55"/>
+    <edge from="tetrahymena" to="t_thermophila" type="taxonomy" w="0.60"/>
 
     <!-- Rumen grouping -->
-    <edge from="ciliophora" to="rumen_protozoa" type="overlay" w="0.35"/>
-    <edge from="rumen_protozoa" to="entodinium" type="taxonomy" w="0.55"/>
-    <edge from="rumen_protozoa" to="epidinium" type="taxonomy" w="0.55"/>
-    <edge from="rumen_protozoa" to="isotricha" type="taxonomy" w="0.55"/>
-    <edge from="rumen_protozoa" to="dasytricha" type="taxonomy" w="0.55"/>
+    <edge from="ciliophora" to="rumen_protozoa" type="association" w="0.25"/>
+    <edge from="rumen_protozoa" to="entodinium" type="taxonomy" w="0.45"/>
+    <edge from="rumen_protozoa" to="epidinium" type="taxonomy" w="0.45"/>
+    <edge from="rumen_protozoa" to="isotricha" type="taxonomy" w="0.45"/>
+    <edge from="rumen_protozoa" to="dasytricha" type="taxonomy" w="0.45"/>
 
     <!-- Multicellular pockets -->
-    <edge from="opisthokonta" to="animals" type="taxonomy" w="0.6"/>
-    <edge from="opisthokonta" to="fungi" type="taxonomy" w="0.6"/>
-    <edge from="archaeplastida" to="plants" type="taxonomy" w="0.6"/>
+    <edge from="opisthokonta" to="animals" type="taxonomy" w="0.55"/>
+    <edge from="opisthokonta" to="fungi" type="taxonomy" w="0.55"/>
+    <edge from="animals" to="human" type="taxonomy" w="0.45"/>
+    <edge from="archaeplastida" to="plants" type="taxonomy" w="0.55"/>
+
+    <!-- Bacteria anchors -->
+    <edge from="bacteria" to="proteobacteria" type="taxonomy" w="0.55"/>
+    <edge from="bacteria" to="firmicutes" type="taxonomy" w="0.45"/>
+    <edge from="proteobacteria" to="e_coli" type="taxonomy" w="0.55"/>
   </edges>
 
   <patches>
-    <!-- paste new patches here -->
+    <!-- Paste new patches here -->
   </patches>
 
 </atlas>

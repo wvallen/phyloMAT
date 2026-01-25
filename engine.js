@@ -1,8 +1,24 @@
-// phyloMAT 2.0 — decision topology engine
-// Canvas-first generative growth. No terminal condition.
+// phyloMAT 2.0 — prototype engine
+// Decision topology explorer
+// Canvas-only, deterministic per run
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
+
+let W, H, DPR;
+
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = canvas.width = Math.floor(window.innerWidth * DPR);
+  H = canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ------------------ UI ------------------ */
 
 const UI = {
   btnStart: document.getElementById("btnStart"),
@@ -16,304 +32,272 @@ const UI = {
   slOpen: document.getElementById("slOpen"),
   slHor: document.getElementById("slHor"),
   slSpeed: document.getElementById("slSpeed"),
+
   lbOpen: document.getElementById("lbOpen"),
   lbHor: document.getElementById("lbHor"),
   lbSpeed: document.getElementById("lbSpeed"),
 
-  togBox: document.getElementById("togBox"),
-  togGhost: document.getElementById("togGhost"),
-
   stRun: document.getElementById("stRun"),
   stMode: document.getElementById("stMode"),
   stStep: document.getElementById("stStep"),
-  stOpt: document.getElementById("stOpt")
+  stOpt: document.getElementById("stOpt"),
 };
 
-let W = 0, H = 0, DPR = 1;
+/* ------------------ Random (deterministic) ------------------ */
 
-function resize(){
-  DPR = Math.max(1, window.devicePixelRatio || 1);
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
-  canvas.style.width = W+"px";
-  canvas.style.height = H+"px";
-  ctx.setTransform(DPR,0,0,DPR,0,0);
+let seed = 1;
+function rand(){
+  seed = (seed * 1664525 + 1013904223) >>> 0;
+  return seed / 4294967295;
 }
-window.addEventListener("resize", resize);
-resize();
-
-// -----------------------------
-// Math helpers
-// -----------------------------
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const rand = (a=1)=>Math.random()*a;
-const lerp = (a,b,t)=>a+(b-a)*t;
-const TAU = Math.PI*2;
-
-// -----------------------------
-// Run state
-// -----------------------------
-let runID = 0;
-let mode = "idle"; // idle | path | overview
-let step = 0;
-
-let openness = 0.55;
-let horizon = 6;
-let speed = 120;
-
-let cam = { x:0, y:0, z:1, tx:0, ty:0, tz:1 };
-
-let trunk = [];       // committed segments
-let ghosts = [];      // faded alternatives
-let options = [];     // current option field
-let selected = null;
-
-// bounding box for growth
-function boxForce(p){
-  if(!UI.togBox.checked) return {x:0,y:0};
-  const pad = 80;
-  let fx=0, fy=0;
-  if(p.x < pad) fx += (pad - p.x)*0.002;
-  if(p.x > W-pad) fx -= (p.x - (W-pad))*0.002;
-  if(p.y < pad) fy += (pad - p.y)*0.002;
-  if(p.y > H-pad) fy -= (p.y - (H-pad))*0.002;
-  return {x:fx,y:fy};
+function randN(){
+  return Math.sqrt(-2*Math.log(Math.max(1e-6, rand()))) *
+         Math.cos(2*Math.PI*rand());
 }
 
-// -----------------------------
-// Option generation
-// -----------------------------
+/* ------------------ Universe ------------------ */
+
+const universe = {
+  x0: 80,
+  y0: 80,
+  x1: () => window.innerWidth - 80,
+  y1: () => window.innerHeight - 80
+};
+
+/* ------------------ State ------------------ */
+
+let state;
+
+function reset(){
+  seed = Math.floor(Math.random()*1e9);
+  state = {
+    agent: {
+      x: window.innerWidth/2,
+      y: window.innerHeight - 120,
+      dx: 0,
+      dy: -1
+    },
+    step: 0,
+    path: [],
+    ghosts: [],
+    options: [],
+    selected: null,
+    cam: {
+      x: window.innerWidth/2,
+      y: window.innerHeight/2,
+      z: 1,
+      tx: 0,
+      ty: 0
+    },
+    mode: "path",
+    running: false
+  };
+  generateOptions();
+  updateUI();
+}
+
+reset();
+
+/* ------------------ Decision Field ------------------ */
+
 function generateOptions(){
-  options = [];
-  selected = null;
-  UI.btnTravel.disabled = true;
+  const openness = UI.slOpen.value / 100;
+  const horizon = parseInt(UI.slHor.value,10);
+  const Nmin = 2;
+  const Nmax = 30;
 
-  const base = trunk.length
-    ? trunk[trunk.length-1]
-    : {x:80,y:H/2, ang:0};
+  const N = Math.floor(Nmin + openness * (Nmax - Nmin));
+  const spread = Math.PI * openness;
 
-  const count = Math.round(
-    clamp(2 + openness*24 - trunk.length*0.05, 1, horizon*4)
-  );
+  const opts = [];
 
-  for(let i=0;i<count;i++){
-    const spread = lerp(0.2,1.2,openness);
-    const ang = base.ang + rand(spread) - spread/2;
-    const len = lerp(18,42,Math.random());
-    const jitter = rand(0.8);
+  for(let i=0;i<N;i++){
+    const a = Math.atan2(state.agent.dy, state.agent.dx);
+    const theta = a + randN()*spread*0.35;
+    const d = horizon * 40;
+    const x = state.agent.x + Math.cos(theta)*d;
+    const y = state.agent.y + Math.sin(theta)*d;
 
-    options.push({
-      x: base.x + Math.cos(ang)*len,
-      y: base.y + Math.sin(ang)*len,
-      ang,
-      len,
-      attract: Math.random(),
-      pulse: Math.random()*TAU,
-      jitter
+    opts.push({
+      x,y,
+      dx: Math.cos(theta),
+      dy: Math.sin(theta),
+      w: Math.max(0.1, 1 - Math.abs(theta-a)/spread),
+      pulse: rand()*Math.PI*2
     });
   }
 
-  UI.stOpt.textContent = options.length;
+  state.options = opts;
+  state.selected = null;
+  UI.btnTravel.disabled = true;
 }
 
-// -----------------------------
-// Commit step
-// -----------------------------
+/* ------------------ Interaction ------------------ */
+
+canvas.addEventListener("click", e=>{
+  if(state.mode!=="path") return;
+  const mx = e.clientX;
+  const my = e.clientY;
+
+  let best = null;
+  let bestD = 1e9;
+  for(const o of state.options){
+    const dx = o.x - mx;
+    const dy = o.y - my;
+    const d = Math.hypot(dx,dy);
+    if(d<28 && d<bestD){
+      best = o;
+      bestD = d;
+    }
+  }
+  if(best){
+    state.selected = best;
+    UI.btnTravel.disabled = false;
+  }
+});
+
+canvas.addEventListener("dblclick", ()=>{
+  if(state.selected) commit();
+});
+
+UI.btnTravel.onclick = ()=>commit();
+
 function commit(){
-  if(!selected) return;
+  const sel = state.selected;
+  if(!sel) return;
 
-  const prev = trunk.length
-    ? trunk[trunk.length-1]
-    : {x:80,y:H/2, ang:0};
+  // record path
+  state.path.push({
+    x0: state.agent.x,
+    y0: state.agent.y,
+    x1: sel.x,
+    y1: sel.y
+  });
 
-  const seg = {
-    x: selected.x,
-    y: selected.y,
-    px: prev.x,
-    py: prev.y,
-    ang: selected.ang,
-    w: clamp(2.5 - step*0.01, 0.8, 3.5)
-  };
-
-  trunk.push(seg);
-
-  if(UI.togGhost.checked){
-    for(const o of options){
-      if(o!==selected){
-        ghosts.push({
-          x:o.x, y:o.y, px:prev.x, py:prev.y,
-          life:1
-        });
-      }
+  // rejected futures become ghosts
+  for(const o of state.options){
+    if(o!==sel){
+      state.ghosts.push({
+        x: state.agent.x,
+        y: state.agent.y,
+        dx: o.dx,
+        dy: o.dy,
+        life: 1
+      });
     }
   }
 
-  step++;
+  // move agent
+  state.agent.x = sel.x;
+  state.agent.y = sel.y;
+  state.agent.dx = sel.dx;
+  state.agent.dy = sel.dy;
+
+  state.step++;
   generateOptions();
-
-  cam.tx = seg.x;
-  cam.ty = seg.y;
-  cam.tz = 1.0;
-
-  UI.stStep.textContent = step;
+  updateUI();
 }
 
-// -----------------------------
-// Rendering
-// -----------------------------
+/* ------------------ Camera ------------------ */
+
+function updateCamera(dt){
+  const speed = UI.slSpeed.value / 100;
+  state.cam.tx = state.agent.x;
+  state.cam.ty = state.agent.y - 120;
+
+  state.cam.x += (state.cam.tx - state.cam.x) * dt * 2 * speed;
+  state.cam.y += (state.cam.ty - state.cam.y) * dt * 2 * speed;
+}
+
+/* ------------------ Drawing ------------------ */
+
 function draw(){
-  ctx.clearRect(0,0,W,H);
   ctx.fillStyle = "#fff";
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
-  ctx.translate(W/2-cam.x*cam.z, H/2-cam.y*cam.z);
-  ctx.scale(cam.z, cam.z);
+  ctx.translate(
+    window.innerWidth/2 - state.cam.x,
+    window.innerHeight/2 - state.cam.y
+  );
 
   // ghosts
-  if(UI.togGhost.checked){
-    ctx.strokeStyle = "rgba(0,0,0,0.10)";
-    ctx.lineWidth = 1;
-    for(const g of ghosts){
-      ctx.beginPath();
-      ctx.moveTo(g.px,g.py);
-      ctx.lineTo(g.x,g.y);
-      ctx.stroke();
-    }
+  for(const g of state.ghosts){
+    g.x += g.dx * 0.4;
+    g.y += g.dy * 0.4;
+    g.life *= 0.997;
+
+    ctx.strokeStyle = `rgba(120,120,120,${0.08*g.life})`;
+    ctx.beginPath();
+    ctx.moveTo(g.x, g.y);
+    ctx.lineTo(g.x - g.dx*20, g.y - g.dy*20);
+    ctx.stroke();
   }
 
-  // trunk
-  ctx.strokeStyle = "#000";
-  for(const s of trunk){
-    ctx.lineWidth = s.w;
+  // tree
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.lineWidth = 1.2;
+  for(const s of state.path){
     ctx.beginPath();
-    ctx.moveTo(s.px,s.py);
-    ctx.lineTo(s.x,s.y);
+    ctx.moveTo(s.x0,s.y0);
+    ctx.lineTo(s.x1,s.y1);
     ctx.stroke();
   }
 
   // options
-  for(const o of options){
-    const pulse = 0.6 + 0.4*Math.sin(o.pulse);
-    ctx.fillStyle = o===selected
-      ? "rgba(0,0,0,0.9)"
-      : `rgba(0,0,0,${0.35+0.35*o.attract*pulse})`;
-    ctx.beginPath();
-    ctx.arc(o.x,o.y,4+3*o.attract,0,TAU);
-    ctx.fill();
+  for(const o of state.options){
+    o.pulse += 0.03;
+    const r = 10 + 6*Math.sin(o.pulse);
 
-    ctx.strokeStyle = "rgba(0,0,0,0.25)";
-    ctx.lineWidth = 1;
-    const last = trunk.length
-      ? trunk[trunk.length-1]
-      : {x:80,y:H/2};
+    ctx.fillStyle = (o===state.selected)
+      ? "rgba(80,160,220,0.9)"
+      : "rgba(120,120,120,0.65)";
+
     ctx.beginPath();
-    ctx.moveTo(last.x,last.y);
-    ctx.lineTo(o.x,o.y);
-    ctx.stroke();
+    ctx.arc(o.x,o.y,r,0,Math.PI*2);
+    ctx.fill();
   }
+
+  // agent
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.arc(state.agent.x,state.agent.y,6,0,Math.PI*2);
+  ctx.fill();
 
   ctx.restore();
 }
 
-// -----------------------------
-// Animation loop
-// -----------------------------
-let lastT = performance.now();
-function tick(t){
-  const dt = (t-lastT)/1000;
-  lastT = t;
+/* ------------------ Loop ------------------ */
 
-  const sp = speed/120;
-  cam.x = lerp(cam.x, cam.tx, dt*2*sp);
-  cam.y = lerp(cam.y, cam.ty, dt*2*sp);
-  cam.z = lerp(cam.z, cam.tz, dt*2*sp);
-
-  for(const o of options){
-    o.pulse += dt*2;
-    const f = boxForce(o);
-    o.x += f.x*40;
-    o.y += f.y*40;
-  }
-
+let last = performance.now();
+function loop(t){
+  const dt = Math.min(0.05,(t-last)/1000);
+  last = t;
+  updateCamera(dt);
   draw();
-  requestAnimationFrame(tick);
+  requestAnimationFrame(loop);
 }
-requestAnimationFrame(tick);
+requestAnimationFrame(loop);
 
-// -----------------------------
-// Interaction
-// -----------------------------
-canvas.addEventListener("click",(e)=>{
-  if(mode!=="path") return;
+/* ------------------ UI ------------------ */
 
-  const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX-rect.left - (W/2-cam.x*cam.z))/cam.z;
-  const my = (e.clientY-rect.top  - (H/2-cam.y*cam.z))/cam.z;
+function updateUI(){
+  UI.lbOpen.textContent = (UI.slOpen.value/100).toFixed(2);
+  UI.lbHor.textContent = UI.slHor.value;
+  UI.lbSpeed.textContent = (UI.slSpeed.value/100).toFixed(2);
+  UI.stStep.textContent = state.step;
+  UI.stOpt.textContent = state.options.length;
+  UI.stMode.textContent = state.mode;
+}
 
-  for(const o of options){
-    const dx = mx-o.x, dy = my-o.y;
-    if(dx*dx+dy*dy < 100){
-      selected = o;
-      UI.btnTravel.disabled = false;
-      return;
-    }
-  }
-});
+UI.slOpen.oninput = ()=>{ updateUI(); generateOptions(); };
+UI.slHor.oninput = ()=>{ updateUI(); generateOptions(); };
+UI.slSpeed.oninput = updateUI;
 
-UI.btnTravel.onclick = commit;
-UI.btnStart.onclick = ()=>{
-  mode="path";
-  trunk=[];
-  ghosts=[];
-  step=0;
-  cam={x:80,y:H/2,z:1,tx:80,ty:H/2,tz:1};
-  generateOptions();
-  UI.stRun.textContent = `run-${++runID}`;
-  UI.stMode.textContent = "path";
-  UI.stStep.textContent = "0";
-};
-
-UI.btnOverview.onclick = ()=>{
-  mode="overview";
-  cam.tx = W/2;
-  cam.ty = H/2;
-  cam.tz = 0.45;
-  UI.stMode.textContent = "overview";
-};
-
-UI.btnReturn.onclick =
-UI.btnReturn2.onclick = ()=>{
-  mode="path";
-  const last = trunk.length
-    ? trunk[trunk.length-1]
-    : {x:80,y:H/2};
-  cam.tx = last.x;
-  cam.ty = last.y;
-  cam.tz = 1.0;
-  UI.stMode.textContent = "path";
-};
-
-UI.btnReset.onclick = ()=>location.reload();
+UI.btnReset.onclick = reset;
 UI.btnPNG.onclick = ()=>{
   const a=document.createElement("a");
   a.download="phylomat_run.png";
-  a.href=canvas.toDataURL("image/png");
+  a.href=canvas.toDataURL();
   a.click();
 };
-
-// sliders
-function sync(){
-  openness = UI.slOpen.value/100;
-  horizon = +UI.slHor.value;
-  speed = +UI.slSpeed.value;
-  UI.lbOpen.textContent = openness.toFixed(2);
-  UI.lbHor.textContent = horizon;
-  UI.lbSpeed.textContent = (speed/100).toFixed(2);
-}
-["slOpen","slHor","slSpeed"].forEach(id=>{
-  UI[id].addEventListener("input",sync);
-});
-sync();

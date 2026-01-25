@@ -1,63 +1,80 @@
-// phyloMAT 2.0 engine
-// Full-screen canvas. Semantic zoom. Colored fog clouds. Optional proximity mesh.
-// Local-first atlas.xml. Exports PNG + state.xml + prompt.txt.
+// phyloMAT 2.0 NEW ENGINE
+// Explore-mode traversal with unfolding neighborhood, semantic zoom (detail level),
+// screen-space styling, comfortable camera easing, visible colored fog clouds.
 
 const canvas = document.getElementById("atlas");
 const ctx = canvas.getContext("2d", { alpha: false });
 
 const UI = {
-  gotoSelect: document.getElementById("gotoSelect"),
-  btnGo: document.getElementById("btnGo"),
+  btnHome: document.getElementById("btnHome"),
+  btnBack: document.getElementById("btnBack"),
   btnReset: document.getElementById("btnReset"),
   btnPNG: document.getElementById("btnPNG"),
   btnState: document.getElementById("btnState"),
   btnPrompt: document.getElementById("btnPrompt"),
 
-  togClouds: document.getElementById("togClouds"),
-  togTaxEdges: document.getElementById("togTaxEdges"),
-  togMesh: document.getElementById("togMesh"),
-  togLabels: document.getElementById("togLabels"),
+  slDetail: document.getElementById("slDetail"),
+  detailLabel: document.getElementById("detailLabel"),
 
-  slLabel: document.getElementById("slLabel"),
-  slCloud: document.getElementById("slCloud"),
-  slMesh: document.getElementById("slMesh"),
-  slLock: document.getElementById("slLock"),
+  togClouds: document.getElementById("togClouds"),
+  togLabels: document.getElementById("togLabels"),
+  togContext: document.getElementById("togContext"),
 
   statLoaded: document.getElementById("statLoaded"),
+  statFocus: document.getElementById("statFocus"),
   statHover: document.getElementById("statHover"),
-  statSel: document.getElementById("statSel"),
   statPins: document.getElementById("statPins"),
+  crumbs: document.getElementById("crumbs"),
+  details: document.getElementById("details"),
 };
 
 const state = {
-  cam: { x: 520, y: 360, z: 0.85 },
-  drag: { on: false, sx: 0, sy: 0, cx: 0, cy: 0 },
-  hover: null,
-  selected: null,
-  pinned: new Set(),
-  focusNote: "Extend atlas near current focus.",
-  lock: 0, // 0..1
+  // camera is expressed as "center + scale" where scale maps world->screen
+  cam: { x: 520, y: 360, z: 1.0 },
+  camTarget: { x: 520, y: 360, z: 1.0 },
   lastT: performance.now(),
+
+  hover: null,
+  focus: "tri",         // current “room”
+  history: ["tri"],     // breadcrumb stack
+  pinned: new Set(),
+
+  detail: 2,            // 1..5 (semantic zoom)
+  focusNote: "Extend atlas near current focus.",
 };
 
 let atlas = {
   nodes: new Map(),
   edges: [],
   clouds: [],
-  homes: new Map(), // id -> {x,y,zoom}
+  homes: new Map(), // view homes: tri, human, etc.
 };
 
-function resize() {
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function ease(a,b,t){ return a + (b-a)*t; }
+
+function resize(){
   const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
   canvas.width = Math.floor(window.innerWidth * dpr);
   canvas.height = Math.floor(window.innerHeight * dpr);
   canvas.style.width = window.innerWidth + "px";
   canvas.style.height = window.innerHeight + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 window.addEventListener("resize", resize);
 
-function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function parseColor(s){
+  const parts = (s || "0,0,0").split(",").map(x => parseInt(x.trim(),10));
+  return { r: parts[0]||0, g: parts[1]||0, b: parts[2]||0 };
+}
+function escapeXML(s){
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
 
 function download(name, text){
   const a = document.createElement("a");
@@ -68,63 +85,24 @@ function download(name, text){
   a.remove();
 }
 
-function escapeXML(s){
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
-
-function hash01(s){
-  let h = 2166136261;
-  for (let i=0;i<s.length;i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967295;
-}
-
 function worldToScreen(wx, wy){
   const {x,y,z} = state.cam;
   return {
     x: (wx - x) * z + window.innerWidth/2,
-    y: (wy - y) * z + window.innerHeight/2
+    y: (wy - y) * z + window.innerHeight/2,
   };
 }
-
 function screenToWorld(sx, sy){
   const {x,y,z} = state.cam;
   return {
     x: (sx - window.innerWidth/2)/z + x,
-    y: (sy - window.innerHeight/2)/z + y
+    y: (sy - window.innerHeight/2)/z + y,
   };
-}
-
-function confAlpha(c){
-  if (c === "high") return 1.0;
-  if (c === "medium") return 0.85;
-  return 0.7;
-}
-
-function nodeBaseRadius(n){
-  const tier = parseInt(n.tier || "3", 10);
-  const fog = parseFloat(n.fog || "0.3");
-  const base = tier === 1 ? 11 : tier === 2 ? 8 : 6;
-  return base + fog*6;
-}
-
-function parseColor(s){
-  // "r,g,b"
-  const parts = (s || "0,0,0").split(",").map(x => parseInt(x.trim(),10));
-  return { r: parts[0]||0, g: parts[1]||0, b: parts[2]||0 };
 }
 
 function parseAtlasXML(xmlText){
   const doc = new DOMParser().parseFromString(xmlText, "text/xml");
 
-  // homes
   for (const h of [...doc.querySelectorAll("meta home")]){
     atlas.homes.set(h.getAttribute("id"), {
       x: parseFloat(h.getAttribute("x")||"0"),
@@ -133,7 +111,6 @@ function parseAtlasXML(xmlText){
     });
   }
 
-  // clouds
   atlas.clouds = [...doc.querySelectorAll("clouds cloud")].map(el => ({
     id: el.getAttribute("id"),
     label: el.getAttribute("label") || "",
@@ -145,7 +122,6 @@ function parseAtlasXML(xmlText){
     color: parseColor(el.getAttribute("color") || "0,0,0"),
   }));
 
-  // nodes
   atlas.nodes = new Map();
   for (const el of [...doc.querySelectorAll("nodes node")]){
     const n = {
@@ -153,19 +129,15 @@ function parseAtlasXML(xmlText){
       label: el.getAttribute("label") || el.getAttribute("id"),
       kind: el.getAttribute("kind") || "taxon",
       confidence: el.getAttribute("confidence") || "medium",
-      fog: el.getAttribute("fog") || "0.3",
+      fog: parseFloat(el.getAttribute("fog") || "0.3"),
       x: parseFloat(el.getAttribute("x") || "0"),
       y: parseFloat(el.getAttribute("y") || "0"),
-      tier: el.getAttribute("tier") || "3",
+      tier: parseInt(el.getAttribute("tier") || "3", 10),
       placement: el.getAttribute("placement") || "",
-      vx: 0, vy: 0,
-      tx: 0, ty: 0,
     };
-    n.tx = n.x; n.ty = n.y;
     atlas.nodes.set(n.id, n);
   }
 
-  // edges
   atlas.edges = [...doc.querySelectorAll("edges edge")].map(el => ({
     from: el.getAttribute("from"),
     to: el.getAttribute("to"),
@@ -176,53 +148,212 @@ function parseAtlasXML(xmlText){
 
 function setHUD(){
   UI.statLoaded.textContent = `${atlas.nodes.size} nodes, ${atlas.edges.length} edges, ${atlas.clouds.length} clouds`;
-  UI.statHover.textContent = state.hover ? atlas.nodes.get(state.hover)?.label || state.hover : "—";
-  UI.statSel.textContent = state.selected ? atlas.nodes.get(state.selected)?.label || state.selected : "—";
+  UI.statFocus.textContent = atlas.nodes.get(state.focus)?.label || state.focus;
+  UI.statHover.textContent = state.hover ? (atlas.nodes.get(state.hover)?.label || state.hover) : "—";
   UI.statPins.textContent = state.pinned.size ? [...state.pinned].join(", ") : "—";
+
+  UI.crumbs.textContent = state.history
+    .map(id => atlas.nodes.get(id)?.label || id)
+    .join("  >  ");
+
+  // detail panel
+  const n = atlas.nodes.get(state.focus);
+  if (!n) { UI.details.textContent = "Click a node."; return; }
+
+  const children = neighborsOf(state.focus, "down")
+    .map(id => atlas.nodes.get(id))
+    .filter(Boolean)
+    .map(m => `  - ${m.label}${m.placement ? " · " + m.placement : ""}`)
+    .join("\n");
+
+  const parents = neighborsOf(state.focus, "up")
+    .map(id => atlas.nodes.get(id))
+    .filter(Boolean)
+    .map(m => `  - ${m.label}`)
+    .join("\n");
+
+  const ctxEdges = neighborsOf(state.focus, "context")
+    .map(id => atlas.nodes.get(id))
+    .filter(Boolean)
+    .map(m => `  - ${m.label}`)
+    .join("\n");
+
+  UI.details.textContent =
+`id: ${n.id}
+kind: ${n.kind}
+tier: ${n.tier}
+confidence: ${n.confidence}
+fog: ${n.fog.toFixed(2)}
+x,y: ${n.x.toFixed(1)}, ${n.y.toFixed(1)}
+${n.placement ? "placement: " + n.placement : ""}
+
+parents:
+${parents || "  —"}
+
+children:
+${children || "  —"}
+
+context:
+${ctxEdges || "  —"}
+`;
 }
 
-function pickNodeAtScreen(sx, sy){
+function confAlpha(c){
+  if (c === "high") return 1.0;
+  if (c === "medium") return 0.85;
+  return 0.7;
+}
+
+/**
+ * Explore graph neighborhood around focus
+ * - direction "down": taxonomy edges from focus outward
+ * - direction "up": taxonomy edges into focus
+ * - direction "context": context/association edges adjacent to focus
+ */
+function neighborsOf(id, mode){
+  const out = new Set();
+  for (const e of atlas.edges){
+    if (mode === "down"){
+      if (e.type === "taxonomy" && e.from === id) out.add(e.to);
+    } else if (mode === "up"){
+      if (e.type === "taxonomy" && e.to === id) out.add(e.from);
+    } else if (mode === "context"){
+      if ((e.type === "context" || e.type === "association") && (e.from === id)) out.add(e.to);
+      if ((e.type === "context" || e.type === "association") && (e.to === id)) out.add(e.from);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Determine which nodes are currently "visible" given focus + detail
+ * detail levels:
+ * 1: focus + its parents/children (taxonomy only)
+ * 2: + one-hop context/association
+ * 3: + second hop taxonomy children
+ * 4: + second hop context/association
+ * 5: show everything (map mode)
+ */
+function visibleNodeIds(){
+  if (state.detail >= 5) return new Set([...atlas.nodes.keys()]);
+
+  const vis = new Set([state.focus]);
+
+  // always include immediate taxonomy up/down
+  for (const id of neighborsOf(state.focus, "up")) vis.add(id);
+  for (const id of neighborsOf(state.focus, "down")) vis.add(id);
+
+  if (state.detail >= 2){
+    for (const id of neighborsOf(state.focus, "context")) vis.add(id);
+  }
+
+  if (state.detail >= 3){
+    // second hop taxonomy children
+    for (const c of neighborsOf(state.focus, "down")){
+      for (const cc of neighborsOf(c, "down")) vis.add(cc);
+    }
+  }
+
+  if (state.detail >= 4){
+    // second hop context
+    for (const c of neighborsOf(state.focus, "context")){
+      for (const cc of neighborsOf(c, "context")) vis.add(cc);
+    }
+  }
+
+  // pinned nodes always visible
+  for (const p of state.pinned) vis.add(p);
+
+  return vis;
+}
+
+/**
+ * Comfortable screen-space sizing:
+ * - node radius capped in pixels
+ * - edge widths in pixels
+ */
+function nodeRadiusPx(n){
+  // tiers act as a gentle cue, not a size explosion
+  const base = n.tier === 1 ? 7 : (n.tier === 2 ? 5 : 4);
+  const fogBonus = n.fog * 2.0; // tiny
+  const hoverBonus = (state.hover === n.id) ? 1.5 : 0;
+  const focusBonus = (state.focus === n.id) ? 2.0 : 0;
+  const pinBonus = state.pinned.has(n.id) ? 1.5 : 0;
+
+  return clamp(base + fogBonus + hoverBonus + focusBonus + pinBonus, 3.0, 10.0);
+}
+
+function edgeWidthPx(type, hot){
+  if (type === "taxonomy") return hot ? 2.2 : 1.6;
+  // context/association
+  return hot ? 1.4 : 1.0;
+}
+
+function enterNode(id){
+  if (!atlas.nodes.has(id) && !atlas.homes.has(id)) return;
+
+  // if a home view exists, use it; else use node coordinate
+  const home = atlas.homes.get(id);
+  if (home){
+    state.camTarget.x = home.x;
+    state.camTarget.y = home.y;
+    state.camTarget.z = home.zoom;
+  } else {
+    const n = atlas.nodes.get(id);
+    state.camTarget.x = n.x;
+    state.camTarget.y = n.y;
+    // semantic zoom target based on detail level
+    state.camTarget.z = 1.2 + 0.35*(state.detail-2);
+  }
+
+  // update focus and breadcrumb trail
+  state.focus = id;
+  if (state.history[state.history.length - 1] !== id) state.history.push(id);
+}
+
+function back(){
+  if (state.history.length <= 1) return;
+  state.history.pop();
+  const id = state.history[state.history.length - 1];
+  state.focus = id;
+
+  const home = atlas.homes.get(id);
+  if (home){
+    state.camTarget = { x: home.x, y: home.y, z: home.zoom };
+  } else {
+    const n = atlas.nodes.get(id);
+    if (n) state.camTarget = { x: n.x, y: n.y, z: 1.2 + 0.35*(state.detail-2) };
+  }
+}
+
+function reset(){
+  state.history = ["tri"];
+  enterNode("tri");
+}
+
+function pickNodeAtScreen(sx, sy, vis){
   const w = screenToWorld(sx, sy);
   let best = null;
   let bestD = Infinity;
 
-  for (const n of atlas.nodes.values()){
+  for (const id of vis){
+    const n = atlas.nodes.get(id);
+    if (!n) continue;
     const dx = w.x - n.x;
     const dy = w.y - n.y;
     const d = Math.sqrt(dx*dx + dy*dy);
 
-    const rWorld = (nodeBaseRadius(n) * 1.4) / state.cam.z;
-    if (d < rWorld && d < bestD){
-      best = n; bestD = d;
+    // Convert radius from px to world units: px / z
+    const rWorld = nodeRadiusPx(n) / Math.max(0.0001, state.cam.z);
+    if (d < rWorld * 1.25 && d < bestD){
+      best = n;
+      bestD = d;
     }
   }
   return best;
 }
 
-function goTo(id){
-  const home = atlas.homes.get(id);
-  if (home){
-    state.cam.x = home.x;
-    state.cam.y = home.y;
-    state.cam.z = home.zoom;
-    state.lock = 0;
-    return;
-  }
-  const n = atlas.nodes.get(id);
-  if (n){
-    state.cam.x = n.x;
-    state.cam.y = n.y;
-    state.cam.z = 1.25;
-    state.lock = 0;
-  }
-}
-
-function reset(){
-  goTo("tri");
-}
-
 function exportPNG(){
-  // Canvas is full screen; browser can export exact pixels.
   const a = document.createElement("a");
   a.download = "phylomat2_view.png";
   a.href = canvas.toDataURL("image/png");
@@ -234,31 +365,21 @@ function exportStateXML(){
   const xml =
 `<phyloMATState version="2.0">
   <camera x="${state.cam.x.toFixed(3)}" y="${state.cam.y.toFixed(3)}" zoom="${state.cam.z.toFixed(5)}"/>
-  <selection selected="${state.selected || ""}" hover="${state.hover || ""}"/>
+  <focus id="${escapeXML(state.focus)}"/>
+  <detail>${state.detail}</detail>
+  <history>${escapeXML(state.history.join(","))}</history>
   <pinned>${escapeXML(pins)}</pinned>
-  <layers clouds="${UI.togClouds.checked}" taxonomy="${UI.togTaxEdges.checked}" mesh="${UI.togMesh.checked}" labels="${UI.togLabels.checked}"/>
-  <sliders label="${UI.slLabel.value}" cloud="${UI.slCloud.value}" mesh="${UI.slMesh.value}" lock="${UI.slLock.value}"/>
+  <layers clouds="${UI.togClouds.checked}" labels="${UI.togLabels.checked}" context="${UI.togContext.checked}"/>
   <note>${escapeXML(state.focusNote)}</note>
 </phyloMATState>`;
   download("state.xml", xml);
 }
 
 function localSliceXML(){
-  const ids = new Set(state.pinned);
-  if (state.selected) ids.add(state.selected);
+  const vis = visibleNodeIds();
+  const nodes = [...vis].map(id => atlas.nodes.get(id)).filter(Boolean);
 
-  if (ids.size === 0){
-    ["bacteria","archaea","eukaryota","sar","opisthokonta","archaeplastida"].forEach(x => ids.add(x));
-  }
-
-  // one-hop neighbors
-  for (const e of atlas.edges){
-    if (ids.has(e.from)) ids.add(e.to);
-    if (ids.has(e.to)) ids.add(e.from);
-  }
-
-  const nodes = [...ids].map(id => atlas.nodes.get(id)).filter(Boolean);
-  const edges = atlas.edges.filter(e => ids.has(e.from) && ids.has(e.to));
+  const edges = atlas.edges.filter(e => vis.has(e.from) && vis.has(e.to));
 
   const nodeXML = nodes.map(n =>
     `  <node id="${n.id}" label="${escapeXML(n.label)}" kind="${n.kind}" confidence="${n.confidence}" fog="${n.fog}" x="${n.x.toFixed(2)}" y="${n.y.toFixed(2)}" />`
@@ -269,7 +390,8 @@ function localSliceXML(){
   ).join("\n");
 
   return `<localContext>
-<focusNote>${escapeXML(state.focusNote)}</focusNote>
+<focus>${escapeXML(state.focus)}</focus>
+<detail>${state.detail}</detail>
 <pinned>${escapeXML([...state.pinned].join(","))}</pinned>
 <nodes>
 ${nodeXML}
@@ -311,252 +433,144 @@ ${ctxXML}
   download("prompt.txt", prompt);
 }
 
-function applyDynamics(dt, t){
-  const lockRate = parseFloat(UI.slLock.value) / 1000;
-  state.lock = clamp(state.lock + dt * lockRate, 0, 1);
-
-  const z = state.cam.z;
-  const zoomGain = clamp((z - 0.7) / 1.2, 0, 1);
-
-  const settle = state.lock;
-  const damp = 0.72*(1-settle) + 0.92*settle;
-
-  const repulse = 0.008 + 0.020*zoomGain;
-
-  for (const e of atlas.edges){
-    const a = atlas.nodes.get(e.from);
-    const b = atlas.nodes.get(e.to);
-    if (!a || !b) continue;
-
-    const isTax = (e.type === "taxonomy");
-    if (isTax && !UI.togTaxEdges.checked) continue;
-
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.max(1e-3, Math.sqrt(dx*dx + dy*dy));
-
-    const baseLen =
-      e.type === "taxonomy" ? 110 :
-      e.type === "association" ? 170 :
-      e.type === "context" ? 220 :
-      140;
-
-    const target = baseLen * (1 + 0.45*zoomGain);
-
-    const typeScale =
-      e.type === "taxonomy" ? 1.0 :
-      e.type === "association" ? 0.35 :
-      e.type === "context" ? 0.20 :
-      0.25;
-
-    const k = 0.0009 * (0.6 + 0.8*e.w) * typeScale;
-    const force = (dist - target) * k;
-
-    const fx = (dx/dist) * force;
-    const fy = (dy/dist) * force;
-
-    a.vx += fx; a.vy += fy;
-    b.vx -= fx; b.vy -= fy;
-  }
-
-  const arr = [...atlas.nodes.values()];
-  for (let i=0;i<arr.length;i++){
-    for (let j=i+1;j<arr.length;j++){
-      const a = arr[i], b = arr[j];
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const d2 = dx*dx + dy*dy + 25;
-      const inv = 1 / d2;
-      const f = repulse * inv;
-
-      a.vx -= dx * f;
-      a.vy -= dy * f;
-      b.vx += dx * f;
-      b.vy += dy * f;
-    }
-  }
-
-  for (const n of atlas.nodes.values()){
-    const fog = parseFloat(n.fog || "0.3");
-    const stable = 0.015 + 0.03*settle;
-    const wobble = (1-settle)*0.5 + 0.12;
-
-    const phase = hash01(n.id)*6.283;
-    const breath = 0.7 + 0.3*Math.sin(t*0.0013 + phase);
-    const tx = n.tx + wobble*breath*Math.sin(t*0.0006 + phase) * 10;
-    const ty = n.ty + wobble*breath*Math.cos(t*0.00055 + phase) * 10;
-
-    n.vx += (tx - n.x) * stable;
-    n.vy += (ty - n.y) * stable;
-
-    const scale = 1.0 - 0.25*fog;
-    n.vx *= damp * scale;
-    n.vy *= damp * scale;
-
-    n.x += n.vx * dt * 60;
-    n.y += n.vy * dt * 60;
-  }
-}
-
+/**
+ * Draw clouds as visible colored fog with gentle grain.
+ * Grain is cheap: a few random specks each frame with stable seeded positions per cloud.
+ */
 function drawClouds(t){
   if (!UI.togClouds.checked) return;
 
-  const cloudOpacity = parseFloat(UI.slCloud.value) / 100; // 0..1
-
   for (const c of atlas.clouds){
+    const {r:cr,g:cg,b:cb} = c.color;
     const drift = c.drift || 0.1;
-    const px = c.x + Math.sin(t*0.00022 + hash01(c.id)*7) * 14 * drift;
-    const py = c.y + Math.cos(t*0.00018 + hash01(c.id)*7) * 12 * drift;
+
+    const px = c.x + Math.sin(t*0.00022 + c.x*0.001) * 12 * drift;
+    const py = c.y + Math.cos(t*0.00018 + c.y*0.001) * 10 * drift;
 
     const p = worldToScreen(px, py);
-    const r = c.r * state.cam.z;
+    const R = c.r * state.cam.z;
 
-    const a0 = (0.05 + 0.09*c.strength) * cloudOpacity * (0.75 + 0.25*Math.sin(t*0.00035 + hash01(c.id)*5));
-    const {r:cr,g:cg,b:cb} = c.color;
+    // Stronger baseline so it registers
+    const alpha = 0.10 + 0.12 * c.strength;
 
-    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-    grad.addColorStop(0, `rgba(${cr},${cg},${cb},${a0})`);
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+    grad.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
     grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
 
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, R, 0, Math.PI*2);
     ctx.fill();
 
-    // faint label
-    ctx.fillStyle = `rgba(0,0,0,${0.28*cloudOpacity})`;
-    ctx.font = `12px "Courier New"`;
-    ctx.fillText(c.label, p.x - r*0.30, p.y + r*0.58);
+    // subtle grain so fog reads
+    const specks = 40; // cheap
+    for (let i=0;i<specks;i++){
+      const a = (i+1) * 12.9898 + (c.x*0.01);
+      const rx = (Math.sin(a) * 43758.5453) % 1;
+      const ry = (Math.sin(a*1.7) * 24634.6345) % 1;
+
+      const ang = (rx<0? -rx: rx) * Math.PI*2;
+      const rad = Math.sqrt(ry<0? -ry: ry) * R * 0.95;
+
+      const sx = p.x + Math.cos(ang) * rad;
+      const sy = p.y + Math.sin(ang) * rad;
+
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${0.03})`;
+      ctx.fillRect(sx, sy, 1, 1);
+    }
+
+    if (UI.togLabels.checked && state.detail <= 2){
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.font = `12px "Courier New"`;
+      ctx.fillText(c.label, p.x - R*0.25, p.y + R*0.58);
+    }
   }
 }
 
-function drawEdges(t){
-  // taxonomy edges
-  if (UI.togTaxEdges.checked){
-    for (const e of atlas.edges){
-      if (e.type !== "taxonomy") continue;
-      const a = atlas.nodes.get(e.from), b = atlas.nodes.get(e.to);
-      if (!a || !b) continue;
-
-      const pa = worldToScreen(a.x,a.y), pb = worldToScreen(b.x,b.y);
-      const hot = (state.selected && (e.from===state.selected || e.to===state.selected)) ||
-                  (state.hover && (e.from===state.hover || e.to===state.hover));
-
-      const alpha = hot ? 0.45 : 0.22;
-      ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-      ctx.lineWidth = hot ? 1.2 : 1.0;
-
-      ctx.beginPath();
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(pb.x, pb.y);
-      ctx.stroke();
-    }
-  }
-
-  // context + association edges (always faint)
+function drawEdges(vis){
+  // draw only edges between visible nodes, with focus neighborhood emphasized
   for (const e of atlas.edges){
-    if (e.type !== "context" && e.type !== "association") continue;
-    const a = atlas.nodes.get(e.from), b = atlas.nodes.get(e.to);
+    if (!vis.has(e.from) || !vis.has(e.to)) continue;
+
+    const a = atlas.nodes.get(e.from);
+    const b = atlas.nodes.get(e.to);
     if (!a || !b) continue;
 
-    const pa = worldToScreen(a.x,a.y), pb = worldToScreen(b.x,b.y);
-    const hot = (state.selected && (e.from===state.selected || e.to===state.selected)) ||
-                (state.hover && (e.from===state.hover || e.to===state.hover));
+    // in explore mode, keep context edges optional
+    if ((e.type === "context" || e.type === "association") && !UI.togContext.checked) continue;
 
-    const base = e.type === "context" ? 0.08 : 0.12;
-    const alpha = hot ? base + 0.18 : base;
+    const pa = worldToScreen(a.x, a.y);
+    const pb = worldToScreen(b.x, b.y);
+
+    const hot = (e.from === state.focus || e.to === state.focus);
+    const type = e.type;
+
+    // alpha logic: taxonomy stronger, context lighter
+    let alpha = 0.0;
+    if (type === "taxonomy") alpha = hot ? 0.55 : 0.25;
+    else alpha = hot ? 0.22 : 0.10;
+
     ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-    ctx.lineWidth = 1.0;
+    ctx.lineWidth = edgeWidthPx(type, hot);
 
     ctx.beginPath();
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
     ctx.stroke();
   }
-
-  // proximity mesh
-  if (UI.togMesh.checked){
-    const z = state.cam.z;
-    const zoomGain = clamp((z - 0.8) / 1.4, 0, 1);
-    const density = parseFloat(UI.slMesh.value) / 100;
-    const maxLinks = Math.floor(40 + density*260);
-    if (density <= 0) return;
-
-    const R = (280 - 120*zoomGain) * (1.0 - 0.35*(1-density));
-    const R2 = R*R;
-
-    const nodes = [...atlas.nodes.values()];
-    let drawn = 0;
-
-    for (let i=0;i<nodes.length && drawn<maxLinks;i++){
-      const a = nodes[i];
-      for (let j=i+1;j<nodes.length && drawn<maxLinks;j++){
-        const b = nodes[j];
-        const dx = b.x-a.x, dy = b.y-a.y;
-        const d2 = dx*dx + dy*dy;
-        if (d2 > R2) continue;
-
-        const pa = worldToScreen(a.x,a.y), pb = worldToScreen(b.x,b.y);
-        const d = Math.sqrt(d2);
-
-        const alpha = 0.05 + 0.10 * density * (1 - d/R);
-        ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-        ctx.lineWidth = 1.0;
-
-        ctx.beginPath();
-        ctx.moveTo(pa.x, pa.y);
-        ctx.lineTo(pb.x, pb.y);
-        ctx.stroke();
-        drawn++;
-      }
-    }
-  }
 }
 
-function drawNodes(t){
-  const labelSize = parseInt(UI.slLabel.value, 10);
-  const z = state.cam.z;
+function drawNodes(vis){
+  for (const id of vis){
+    const n = atlas.nodes.get(id);
+    if (!n) continue;
 
-  for (const n of atlas.nodes.values()){
-    const p = worldToScreen(n.x,n.y);
+    const p = worldToScreen(n.x, n.y);
+    const r = nodeRadiusPx(n);
 
-    const baseR = nodeBaseRadius(n);
-    const pulse = 0.7 + 0.3*Math.sin(t*0.004 + hash01(n.id)*6.283);
-    const r = baseR * (0.9 + 0.15*pulse);
+    const isFocus = (id === state.focus);
+    const isHover = (id === state.hover);
+    const isPinned = state.pinned.has(id);
 
-    const isPinned = state.pinned.has(n.id);
-    const isSel = state.selected === n.id;
-    const isHover = state.hover === n.id;
+    const baseA = confAlpha(n.confidence) * 0.92;
+    const a = (isFocus || isHover || isPinned) ? 1.0 : baseA;
 
-    const a = confAlpha(n.confidence) * (isPinned || isSel || isHover ? 1.0 : 0.88);
+    // fill
     ctx.fillStyle = `rgba(0,0,0,${a})`;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI*2);
     ctx.fill();
 
-    if (isPinned || isSel){
-      ctx.strokeStyle = `rgba(0,0,0,${0.22 + 0.18*pulse})`;
-      ctx.lineWidth = 1.1;
+    // crisp outline helps against fog
+    ctx.lineWidth = 1.0;
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.stroke();
+
+    // focus halo
+    if (isFocus || isPinned){
+      ctx.strokeStyle = `rgba(0,0,0,${isFocus ? 0.55 : 0.35})`;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, r + 6 + 2*pulse, 0, Math.PI*2);
+      ctx.arc(p.x, p.y, r + (isFocus?6:4), 0, Math.PI*2);
       ctx.stroke();
     }
 
-    if (UI.togLabels.checked){
-      const tier = parseInt(n.tier || "3", 10);
-      const show =
-        (tier===1) ||
-        (tier===2 && z>0.55) ||
-        (tier===3 && (z>0.95 || isPinned || isSel || isHover));
+    // labels by detail + tier
+    if (!UI.togLabels.checked) continue;
 
-      if (show){
-        const label = n.placement ? `${n.label} · ${n.placement}` : n.label;
-        const size = tier===1 ? labelSize+4 : tier===2 ? labelSize+1 : labelSize;
-        ctx.font = `${size}px "Courier New"`;
-        ctx.fillStyle = `rgba(0,0,0,${(isPinned||isSel||isHover) ? 0.86 : 0.56})`;
-        ctx.fillText(label, p.x + r + 10, p.y + 5);
-      }
-    }
+    const show =
+      (state.detail <= 2 && n.tier <= 2) ||
+      (state.detail >= 3) ||
+      isFocus || isHover || isPinned;
+
+    if (!show) continue;
+
+    const label = n.placement ? `${n.label} · ${n.placement}` : n.label;
+    const fontSize = (n.tier === 1) ? 16 : (n.tier === 2 ? 13 : 12);
+
+    ctx.font = `${fontSize}px "Courier New"`;
+    ctx.fillStyle = `rgba(0,0,0,${isFocus||isHover||isPinned ? 0.90 : 0.60})`;
+    ctx.fillText(label, p.x + r + 10, p.y + 4);
   }
 }
 
@@ -565,15 +579,31 @@ function render(t){
   ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
 
   drawClouds(t);
-  drawEdges(t);
-  drawNodes(t);
+
+  const vis = visibleNodeIds();
+
+  // fade background nodes if detail small (explore feeling)
+  // implemented by drawing only vis; everything else is “there” conceptually but not rendered.
+
+  drawEdges(vis);
+  drawNodes(vis);
+}
+
+function stepCamera(dt){
+  // camera easing for comfort
+  const kPos = 1 - Math.pow(0.001, dt);  // time-based smoothing
+  const kZoom = 1 - Math.pow(0.002, dt);
+
+  state.cam.x = ease(state.cam.x, state.camTarget.x, kPos);
+  state.cam.y = ease(state.cam.y, state.camTarget.y, kPos);
+  state.cam.z = ease(state.cam.z, state.camTarget.z, kZoom);
 }
 
 function tick(t){
   const dt = clamp((t - state.lastT)/1000, 0, 0.05);
   state.lastT = t;
 
-  applyDynamics(dt, t);
+  stepCamera(dt);
   setHUD();
   render(t);
 
@@ -584,150 +614,92 @@ async function boot(){
   resize();
 
   const res = await fetch("./atlas.xml", { cache: "no-store" });
-  const txt = await res.text();
-  parseAtlasXML(txt);
+  const xml = await res.text();
+  parseAtlasXML(xml);
 
-  // start at overview
-  reset();
+  // seed camera from tri home
+  const tri = atlas.homes.get("tri") || { x: 520, y: 360, zoom: 0.85 };
+  state.cam = { x: tri.x, y: tri.y, z: tri.zoom };
+  state.camTarget = { x: tri.x, y: tri.y, z: tri.zoom };
 
-  // controls
-  UI.btnReset.addEventListener("click", reset);
+  // init detail
+  state.detail = parseInt(UI.slDetail.value, 10);
+  UI.detailLabel.textContent = String(state.detail);
+
+  // enter tri
+  state.focus = "tri";
+  state.history = ["tri"];
+
+  // UX bindings
+  UI.btnHome.addEventListener("click", () => reset());
+  UI.btnReset.addEventListener("click", () => reset());
+  UI.btnBack.addEventListener("click", () => back());
   UI.btnPNG.addEventListener("click", exportPNG);
   UI.btnState.addEventListener("click", exportStateXML);
   UI.btnPrompt.addEventListener("click", exportPromptTXT);
 
-  UI.btnGo.addEventListener("click", () => goTo(UI.gotoSelect.value));
-  UI.gotoSelect.addEventListener("change", () => { /* no auto-jump */ });
+  UI.slDetail.addEventListener("input", () => {
+    state.detail = parseInt(UI.slDetail.value, 10);
+    UI.detailLabel.textContent = String(state.detail);
 
-  // mouse
-  canvas.addEventListener("mousemove", (ev) => {
-    const sx = ev.clientX, sy = ev.clientY;
-
-    if (state.drag.on){
-      const dx = (sx - state.drag.sx)/state.cam.z;
-      const dy = (sy - state.drag.sy)/state.cam.z;
-      state.cam.x = state.drag.cx - dx;
-      state.cam.y = state.drag.cy - dy;
-      return;
+    // semantic zoom adjusts target zoom gently, not instantly
+    const n = atlas.nodes.get(state.focus);
+    if (n){
+      state.camTarget.z = 1.05 + 0.35*(state.detail-2);
+    } else {
+      const home = atlas.homes.get(state.focus);
+      if (home) state.camTarget.z = home.zoom;
     }
+  });
 
-    const n = pickNodeAtScreen(sx, sy);
+  // pointer: hover + click-to-enter
+  canvas.addEventListener("mousemove", (ev) => {
+    const vis = visibleNodeIds();
+    const n = pickNodeAtScreen(ev.clientX, ev.clientY, vis);
     state.hover = n ? n.id : null;
   });
 
-  canvas.addEventListener("mousedown", (ev) => {
-    const sx = ev.clientX, sy = ev.clientY;
-
-    state.drag.on = true;
-    state.drag.sx = sx;
-    state.drag.sy = sy;
-    state.drag.cx = state.cam.x;
-    state.drag.cy = state.cam.y;
-  });
-
-  window.addEventListener("mouseup", () => {
-    state.drag.on = false;
-  });
-
-  // zoom
-  canvas.addEventListener("wheel", (ev) => {
-    ev.preventDefault();
-
-    const sx = ev.clientX, sy = ev.clientY;
-    const before = screenToWorld(sx, sy);
-
-    const factor = ev.deltaY < 0 ? 1.09 : 0.91;
-    state.cam.z = clamp(state.cam.z * factor, 0.18, 5.2);
-
-    const after = screenToWorld(sx, sy);
-    state.cam.x += (before.x - after.x);
-    state.cam.y += (before.y - after.y);
-
-    state.lock = 0;
-  }, { passive: false });
-
-  // click: select, shift-click: pin
   canvas.addEventListener("click", (ev) => {
-    const sx = ev.clientX, sy = ev.clientY;
-    const n = pickNodeAtScreen(sx, sy);
+    const vis = visibleNodeIds();
+    const n = pickNodeAtScreen(ev.clientX, ev.clientY, vis);
     if (!n) return;
 
-    state.selected = n.id;
-
-    if (ev.shiftKey) {
+    if (ev.shiftKey){
       if (state.pinned.has(n.id)) state.pinned.delete(n.id);
       else state.pinned.add(n.id);
+      return;
     }
+
+    enterNode(n.id);
   });
 
-  // keyboard helpers
+  // wheel changes semantic detail by default (comfortable)
+  canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    const dir = ev.deltaY < 0 ? 1 : -1;
+    const next = clamp(state.detail + dir, 1, 5);
+    state.detail = next;
+    UI.slDetail.value = String(next);
+    UI.detailLabel.textContent = String(next);
+
+    // update zoom target to match detail
+    const n = atlas.nodes.get(state.focus);
+    if (n){
+      state.camTarget.z = 1.05 + 0.35*(state.detail-2);
+    }
+  }, { passive: false });
+
+  // keyboard
   window.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
-      state.selected = null;
-      state.hover = null;
-    }
-    if (ev.key === "0") {
-      reset();
-    }
+    if (ev.key === "Escape") state.hover = null;
+    if (ev.key === "Backspace") back();
+    if (ev.key === "0") reset();
   });
 
-  // toggles and sliders trigger a gentle reflow
-  const nudge = () => { state.lock = 0; };
-
-  UI.togClouds.addEventListener("change", nudge);
-  UI.togTaxEdges.addEventListener("change", nudge);
-  UI.togMesh.addEventListener("change", nudge);
-  UI.togLabels.addEventListener("change", nudge);
-
-  UI.slLabel.addEventListener("input", () => {});
-  UI.slCloud.addEventListener("input", () => {});
-  UI.slMesh.addEventListener("input", () => { state.lock = 0; });
-  UI.slLock.addEventListener("input", () => { state.lock = 0; });
-
-  // populate dropdown from homes + common taxa (if present)
-  (function fillGoto() {
-    const opts = [];
-    for (const [id] of atlas.homes.entries()) opts.push(id);
-
-    // useful defaults if homes omitted
-    const defaults = ["tri", "human", "t_thermophila", "e_coli", "bacteria", "archaea", "eukaryota"];
-    for (const id of defaults) {
-      if (atlas.homes.has(id) || atlas.nodes.has(id)) {
-        if (!opts.includes(id)) opts.push(id);
-      }
-    }
-
-    // stable ordering: keep tri first, then rest
-    opts.sort((a, b) => {
-      if (a === "tri") return -1;
-      if (b === "tri") return 1;
-      return a.localeCompare(b);
-    });
-
-    UI.gotoSelect.innerHTML = "";
-    for (const id of opts) {
-      const label = atlas.nodes.get(id)?.label || id;
-      const o = document.createElement("option");
-      o.value = id;
-      o.textContent = label;
-      UI.gotoSelect.appendChild(o);
-    }
-
-    // prefer tri view in selector if present
-    if (opts.includes("tri")) UI.gotoSelect.value = "tri";
-  })();
-
-  // initial UI defaults if elements exist
-    UI.togClouds.checked = true;
-    UI.togTaxEdges.checked = true;
-    UI.togMesh.checked = true;
-    UI.togLabels.checked = true;
-
-  // start animation
   requestAnimationFrame(tick);
 }
 
 boot().catch(err => {
   console.error(err);
-  alert("phyloMAT 2.0: atlas failed to load. Serve from a web server so atlas.xml can be fetched.");
+  alert("phyloMAT 2.0: failed to load atlas.xml. Serve via a web server.");
 });

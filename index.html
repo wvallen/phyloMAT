@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phylomat</title>
+  <meta name="description" content="Phylomat — motif analysis tool for phylogenomics." />
+  <style>
+    :root{
+      --paper:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --line:#e2e8f0;
+      --soft:#f8fafc;
+
+      --accent:#16a34a;   /* green */
+      --ember:#ea580c;    /* orange */
+      --dark:#111827;
+
+      --radius:16px;
+      --shadow: 0 10px 28px rgba(2,6,23,.08);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background:var(--paper);
+      color:var(--ink);
+      font-family:var(--sans);
+      line-height:1.45;
+    }
+
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 18px 60px;
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding: 8px 0 18px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width: 260px;
+    }
+
+    .mark{
+      width:54px;
+      height:54px;
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size: 28px;
+      letter-spacing: .2px;
+      font-weight: 720;
+    }
+    .tag{
+      margin:2px 0 0;
+      color:var(--muted);
+      font-size: 13.5px;
+    }
+
+    .pillrow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .pill{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 10px;
+      border:1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--soft);
+      text-decoration:none;
+      white-space:nowrap;
+    }
+    .pill:hover{ border-color:#cbd5e1; color:#0f172a; }
+
+    .hero{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap:18px;
+      margin-top: 10px;
+      align-items:stretch;
+    }
+
+    @media (max-width: 860px){
+      .hero{ grid-template-columns: 1fr; }
+      .pillrow{ justify-content:flex-start; }
+    }
+
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .card .hd{
+      padding: 14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background: linear-gradient(180deg, #ffffff, #fbfdff);
+    }
+
+    .card .hd .title{
+      font-weight: 650;
+      letter-spacing: .2px;
+    }
+    .sub{
+      color:var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .card .bd{ padding: 16px; }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 560px){
+      .grid2{ grid-template-columns:1fr; }
+    }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom:6px;
+    }
+
+    input, select{
+      width:100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border:1px solid #cbd5e1;
+      font-size: 14px;
+      outline:none;
+      background: #fff;
+    }
+    input:focus, select:focus{
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 4px rgba(148,163,184,.25);
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-top: 12px;
+      flex-wrap:wrap;
+    }
+    button{
+      border:0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-weight: 650;
+      cursor:pointer;
+    }
+    .run{
+      background: var(--dark);
+      color: #fff;
+    }
+    .run:hover{ filter: brightness(1.07); }
+
+    .ghost{
+      background: #fff;
+      border:1px solid var(--line);
+      color: var(--ink);
+    }
+    .ghost:hover{ border-color:#cbd5e1; }
+
+    .note{
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+    .note strong{ color: var(--ink); }
+
+    /* Pipeline */
+    .pipeline{
+      display:grid;
+      gap:10px;
+    }
+    .step{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:#fff;
+    }
+    .step .k{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .step .v{
+      font-size: 13.5px;
+      font-weight: 620;
+    }
+    .step.active{
+      border-color: rgba(22,163,74,.45);
+      box-shadow: 0 0 0 4px rgba(22,163,74,.10);
+      background: linear-gradient(180deg, #ffffff, #f3fbf6);
+    }
+    .badge{
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--soft);
+    }
+    .badge.on{
+      border-color: rgba(234,88,12,.35);
+      background: rgba(234,88,12,.08);
+      color: #9a3412;
+    }
+
+    pre{
+      margin:0;
+      padding: 12px;
+      border-radius: 14px;
+      border:1px solid var(--line);
+      background: #0b1220;
+      color: #e2e8f0;
+      overflow:auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height:1.5;
+    }
+
+    footer{
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    footer a{ color: inherit; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <!-- Inline SVG mark (editable in Illustrator later) -->
+        <svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" aria-label="Phylomat mark">
+          <g stroke="#1f1f1f" stroke-width="16" stroke-linecap="round">
+            <line x1="0" y1="0" x2="0" y2="-52"/>
+            <line x1="0" y1="0" x2="36.8" y2="-36.8"/>
+            <line x1="0" y1="0" x2="52" y2="0"/>
+            <line x1="0" y1="0" x2="36.8" y2="36.8"/>
+            <line x1="0" y1="0" x2="0" y2="52"/>
+            <line x1="0" y1="0" x2="-36.8" y2="36.8"/>
+            <line x1="0" y1="0" x2="-52" y2="0"/>
+            <line x1="0" y1="0" x2="-36.8" y2="-36.8"/>
+          </g>
+          <circle cx="0" cy="0" r="22" fill="#7bc96f"/>
+          <g fill="#ea580c">
+            <circle cx="0" cy="-78" r="12"/>
+            <circle cx="55.2" cy="-55.2" r="12"/>
+            <circle cx="78" cy="0" r="12"/>
+            <circle cx="55.2" cy="55.2" r="12"/>
+            <circle cx="0" cy="78" r="12"/>
+            <circle cx="-55.2" cy="55.2" r="12"/>
+            <circle cx="-78" cy="0" r="12"/>
+            <circle cx="-55.2" cy="-55.2" r="12"/>
+          </g>
+        </svg>
+
+        <div>
+          <h1>Phylomat</h1>
+          <div class="tag">motif analysis tool for phylogenomics</div>
+        </div>
+      </div>
+
+      <div class="pillrow">
+        <a class="pill" href="#" id="pill-paper">paper (soon)</a>
+        <a class="pill" href="#" id="pill-github">source (soon)</a>
+        <a class="pill" href="#" id="pill-contact">contact</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="card">
+        <div class="hd">
+          <div>
+            <div class="title">Demo mode</div>
+            <div class="sub">A working front door today, real databases next.</div>
+          </div>
+          <span class="badge on" id="modeBadge">stubbed</span>
+        </div>
+
+        <div class="bd">
+          <div class="grid2">
+            <div>
+              <label for="motif">Motif / domain</label>
+              <input id="motif" placeholder="e.g., PF00069 or 'kinase domain'" />
+            </div>
+            <div>
+              <label for="scope">Scope</label>
+              <select id="scope">
+                <option value="all">Archaea • Bacteria • Eukarya</option>
+                <option value="archaea">Archaea</option>
+                <option value="bacteria">Bacteria</option>
+                <option value="eukarya">Eukarya</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="run" id="runBtn">Run Phylomat</button>
+            <button class="ghost" id="downloadBtn" disabled>Download JSON</button>
+            <button class="ghost" id="resetBtn">Reset</button>
+          </div>
+
+          <div class="note">
+            <strong>What you’re seeing:</strong> the original workflow as a modern shell.
+            When you’re ready, we wire the “Motif lookup” step to InterPro/Pfam and the “Sequences” step to UniProt via a Cloudflare Worker.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <div>
+            <div class="title">Pipeline</div>
+            <div class="sub">Motif → proteins → sequences → alignment → tree → stats</div>
+          </div>
+          <span class="badge" id="statusBadge">idle</span>
+        </div>
+
+        <div class="bd">
+          <div class="pipeline" id="pipeline">
+            <div class="step" data-step="0"><div>
+              <div class="k">Input</div><div class="v">Motif name</div></div><span class="badge">user</span>
+            </div>
+            <div class="step" data-step="1"><div>
+              <div class="k">Lookup</div><div class="v">Motif/domain databases</div></div><span class="badge">pending</span>
+            </div>
+            <div class="step" data-step="2"><div>
+              <div class="k">Fetch</div><div class="v">Protein names + organisms</div></div><span class="badge">pending</span>
+            </div>
+            <div class="step" data-step="3"><div>
+              <div class="k">Extract</div><div class="v">Sequences</div></div><span class="badge">pending</span>
+            </div>
+            <div class="step" data-step="4"><div>
+              <div class="k">Compute</div><div class="v">Alignment + tree</div></div><span class="badge">pending</span>
+            </div>
+            <div class="step" data-step="5"><div>
+              <div class="k">Summarize</div><div class="v">Result statistics</div></div><span class="badge">pending</span>
+            </div>
+            <div class="step" data-step="6"><div>
+              <div class="k">Return</div><div class="v">Results to user</div></div><span class="badge">pending</span>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <pre id="output">{ "status": "idle", "hint": "Type a motif/domain and click Run." }</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      © <span id="year"></span> Phylomat. Rebuilt from the original concept: motif-driven phylogenomics.
+      <span style="display:block; margin-top:6px;">
+        Tip: If you want this to feel archival, we can add a “2004” mode with classic typography and a scanned-figure aesthetic.
+      </span>
+    </footer>
+  </div>
+
+  <script>
+    const steps = [...document.querySelectorAll(".step")];
+    const statusBadge = document.getElementById("statusBadge");
+    const modeBadge = document.getElementById("modeBadge");
+    const out = document.getElementById("output");
+    const runBtn = document.getElementById("runBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const motifEl = document.getElementById("motif");
+    const scopeEl = document.getElementById("scope");
+    const yearEl = document.getElementById("year");
+
+    yearEl.textContent = new Date().getFullYear();
+
+    let lastResult = null;
+
+    function setStatus(text){
+      statusBadge.textContent = text;
+    }
+
+    function clearActive(){
+      steps.forEach(s => s.classList.remove("active"));
+      steps.forEach(s => {
+        const b = s.querySelector(".badge");
+        if (b && b.textContent !== "user") b.textContent = "pending";
+      });
+    }
+
+    function activate(i, badgeText){
+      const el = steps.find(s => +s.dataset.step === i);
+      if (!el) return;
+      el.classList.add("active");
+      const b = el.querySelector(".badge");
+      if (b && b.textContent !== "user") b.textContent = badgeText || "running";
+    }
+
+    function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+    function fakeCounts(scope){
+      const base = scope === "all" ? 120 : scope === "bacteria" ? 78 : scope === "eukarya" ? 44 : 18;
+      const proteins = base + Math.floor(Math.random()*30);
+      const organisms = Math.max(6, Math.floor(proteins/6));
+      return { proteins, organisms };
+    }
+
+    function makeStubResult(motif, scope){
+      const { proteins, organisms } = fakeCounts(scope);
+      const now = new Date().toISOString();
+
+      // A deliberately honest stub: structured like the eventual real output.
+      return {
+        tool: "phylomat",
+        mode: "demo-stub",
+        timestamp: now,
+        query: { motif, scope },
+        sources: {
+          motif_db: "pending (InterPro/Pfam)",
+          protein_db: "pending (UniProt)",
+          alignment: "pending (MAFFT)",
+          tree: "pending (FastTree/NJ)"
+        },
+        results: {
+          proteins_found: proteins,
+          organisms_found: organisms,
+          downloads: {
+            proteins_table: "coming soon",
+            sequences_fasta: "coming soon",
+            alignment: "coming soon",
+            tree_newick: "coming soon"
+          }
+        },
+        next: [
+          "Wire motif lookup to InterPro/Pfam via Cloudflare Worker",
+          "Fetch sequences from UniProt accessions",
+          "Run alignment + tree server-side and return artifacts"
+        ]
+      };
+    }
+
+    async function run(){
+      const motif = (motifEl.value || "").trim();
+      const scope = scopeEl.value;
+
+      if (!motif){
+        out.textContent = '{ "error": "Please enter a motif/domain (e.g., PF00069 or a keyword)." }';
+        return;
+      }
+
+      clearActive();
+      setStatus("running");
+      downloadBtn.disabled = true;
+
+      out.textContent = JSON.stringify({ status: "running", motif, scope }, null, 2);
+
+      activate(0, "ok"); await sleep(350);
+      activate(1, "lookup"); await sleep(520);
+      activate(2, "fetch"); await sleep(520);
+      activate(3, "extract"); await sleep(520);
+      activate(4, "compute"); await sleep(680);
+      activate(5, "summarize"); await sleep(420);
+      activate(6, "ready"); await sleep(220);
+
+      lastResult = makeStubResult(motif, scope);
+      out.textContent = JSON.stringify(lastResult, null, 2);
+
+      setStatus("complete");
+      downloadBtn.disabled = false;
+    }
+
+    function download(){
+      if (!lastResult) return;
+      const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "phylomat-result.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function reset(){
+      motifEl.value = "";
+      scopeEl.value = "all";
+      lastResult = null;
+      clearActive();
+      setStatus("idle");
+      out.textContent = '{ "status": "idle", "hint": "Type a motif/domain and click Run." }';
+      downloadBtn.disabled = true;
+    }
+
+    runBtn.addEventListener("click", run);
+    downloadBtn.addEventListener("click", download);
+    resetBtn.addEventListener("click", reset);
+
+    // Simple "contact" behavior without hardcoding email in the DOM
+    document.getElementById("pill-contact").addEventListener("click", (e) => {
+      e.preventDefault();
+      const user = "w";
+      const domain = "phylomat.org";
+      window.location.href = `mailto:${user}@${domain}?subject=Phylomat`;
+    });
+
+    // placeholders for now
+    document.getElementById("pill-paper").addEventListener("click", (e) => {
+      e.preventDefault();
+      alert("Paper link coming soon. Once you have the PDF/DOI, we’ll wire this.");
+    });
+    document.getElementById("pill-github").addEventListener("click", (e) => {
+      e.preventDefault();
+      alert("Source link coming soon. If you want, we can set up a repo structure next.");
+    });
+  </script>
+</body>
+</html>

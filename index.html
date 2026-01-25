@@ -78,7 +78,36 @@
         </div>
         <div class="hint"><span class="pill">Labels</span> curated taxa + a few high clades. Everything else stays geometry.</div>
       </div>
+      <div class="section">
+        <h2>Model systems</h2>
+        <label for="modelSelect">Jump highlight</label>
+        <select id="modelSelect"></select>
+        <div class="hint">Classic lab anchors across the tree.</div>
+      </div>
 
+      <div class="section">
+        <h2>Pathogens</h2>
+        <label for="pathogenSelect">Jump highlight</label>
+        <select id="pathogenSelect"></select>
+        <div class="hint">Surprising branches with human relevance.</div>
+      </div>
+
+      <div class="section">
+        <h2>Explore</h2>
+        <label for="exploreTour">Tours</label>
+        <select id="exploreTour">
+          <option value="">Select…</option>
+          <option value="domains">Domains of life</option>
+          <option value="endosymbiosis">Endosymbiosis (mitochondria)</option>
+          <option value="multicellularity">Multicellularity (multiple origins)</option>
+          <option value="models">Model systems constellation</option>
+          <option value="pathogens">Pathogens across domains</option>
+        </select>
+
+        <label for="timeSlider">Time (landmarks)</label>
+        <input id="timeSlider" type="range" min="0" max="5" step="1" value="5" />
+        <div class="hint">Now: <span id="timeLabel">Present</span></div>
+      </div>
       <div class="section">
         <h2>Layer</h2>
         <label for="layer">Coverage overlay</label>

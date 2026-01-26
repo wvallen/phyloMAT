@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>phyloMAT</title>
+  <title>PhyloMAT</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     :root {
       --ink: #111;
-      --soft: #777;
+      --soft: #666;
       --bg: #ffffff;
     }
 
@@ -26,17 +26,26 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      text-align: center;
     }
 
+    .stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* top row: logo + word */
     .lockup {
       display: flex;
       align-items: center;
-      gap: 22px;
+      gap: 26px;
     }
 
     .logo {
-      width: 88px;
-      height: 88px;
+      width: clamp(72px, 9vw, 110px);
+      height: auto;
       animation: slowspin 28s linear infinite;
     }
 
@@ -45,34 +54,28 @@
       to   { transform: rotate(360deg); }
     }
 
-    .wordmark {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
     .title {
-      font-size: 44px;
-      letter-spacing: 0.04em;
+      font-size: clamp(42px, 6.5vw, 78px);
+      letter-spacing: 0.06em;
       color: var(--ink);
       line-height: 1;
+      white-space: nowrap;
     }
 
+    /* tagline matches visual width by font scale */
     .subtitle {
-      margin-top: 8px;
-      font-size: 14px;
+      font-size: clamp(14px, 1.8vw, 18px);
       letter-spacing: 0.12em;
       color: var(--soft);
     }
 
-    /* small screens */
+    /* mobile tuning */
     @media (max-width: 600px) {
-      .logo {
-        width: 64px;
-        height: 64px;
+      .lockup {
+        gap: 18px;
       }
-      .title {
-        font-size: 32px;
+      .subtitle {
+        letter-spacing: 0.08em;
       }
     }
   </style>
@@ -80,13 +83,15 @@
 
 <body>
   <div class="wrap">
-    <div class="lockup">
-      <!-- replace src with your logo filename -->
-      <img class="logo" src="logo.svg" alt="phyloMAT logo" />
-
-      <div class="wordmark">
+    <div class="stack">
+      <div class="lockup">
+        <!-- update filename if needed -->
+        <img src="phylomat-logo.svg" alt="PhyloMAT logo" class="logo" />
         <div class="title">PhyloMAT</div>
-        <div class="subtitle">Motif Analysis Tool for Phylogenomics</div>
+      </div>
+
+      <div class="subtitle">
+        Motif Analysis Tool for Phylogenomics
       </div>
     </div>
   </div>

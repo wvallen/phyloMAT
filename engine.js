@@ -1,5 +1,5 @@
-// phyloMAT Path Mode v1
-// Embodied camera + forward decision field
+// phyloMAT 2.0 — Path Engine v0.3
+// Decision horizon with forward arc, orbital futures, color/aliveness
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -9,8 +9,8 @@ function resize(){
   DPR = Math.max(1, window.devicePixelRatio || 1);
   W = canvas.width = window.innerWidth * DPR;
   H = canvas.height = window.innerHeight * DPR;
-  canvas.style.width = window.innerWidth+"px";
-  canvas.style.height = window.innerHeight+"px";
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
   ctx.setTransform(DPR,0,0,DPR,0,0);
 }
 window.addEventListener("resize", resize);
@@ -32,172 +32,116 @@ let step = 0;
 let moving = false;
 
 const camera = {
-  x: 0,
   y: 0,
-  vx: 0,
   vy: 0
 };
 
-// universe bounds (soft)
-const BOX = {
-  minX: -1200,
-  maxX:  1200,
-  minY: -2600,
-  maxY:   200
-};
+// decision horizon
+let horizon = [];
 
-// screen anchor for “you”
-function selfAnchor(){
-  return { x: W/2, y: H*0.78 };
-}
-
-// options in front of camera
-let options = [];
-
-// ---------- Math ----------
+// ---------- Math helpers ----------
 const rand = (a,b)=>a+Math.random()*(b-a);
 const lerp = (a,b,t)=>a+(b-a)*t;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
-function unit(v){
-  const d=Math.hypot(v.x,v.y)||1;
-  return {x:v.x/d,y:v.y/d};
-}
-
-// inward bias near box edges
-function inwardBias(pos){
-  let bx = 0, by = 0;
-  if(pos.x < BOX.minX+200) bx += 1;
-  if(pos.x > BOX.maxX-200) bx -= 1;
-  if(pos.y < BOX.minY+200) by += 1;
-  if(pos.y > BOX.maxY-200) by -= 1;
-  return unit({x:bx,y:by});
-}
-
-// ---------- Option generation ----------
-function spawnOptions(count){
-  options = [];
+// ---------- Horizon generation ----------
+function spawnHorizon(count){
+  horizon = [];
 
   const openness = slOpen.value/100;
-  const horizon  = slHor.value;
-  const spread   = lerp(0.25, 1.1, openness);
-
-  const bias = inwardBias(camera);
+  const spread = lerp(Math.PI/10, Math.PI/2.4, openness);
+  const baseR = lerp(220, 360, slHor.value/12);
 
   for(let i=0;i<count;i++){
-    const a = rand(-spread, spread);
-    const d = rand(260, 420) * horizon;
+    const t = count===1 ? 0 : (i/(count-1)-0.5)*2;
+    const ang = t * spread;
 
-    const dir = unit({
-      x: Math.sin(a) + bias.x*0.6,
-      y: -Math.cos(a) + bias.y*0.6
-    });
-
-    options.push({
-      dir,
-      dist: d,
-      r: rand(18,28),
-      pulse: Math.random()*6.28,
-      drift: rand(0.6,1.0)
+    horizon.push({
+      ang,
+      r: baseR * rand(0.9,1.1),
+      size: rand(12,18),
+      phase: Math.random()*Math.PI*2,
+      orbit: rand(6,14),
+      hue: rand(190,280),
+      energy: rand(0.4,1)
     });
   }
 
-  stOpt.textContent = options.length;
+  stOpt.textContent = horizon.length;
 }
 
-// ---------- Movement ----------
-function commitDirection(dir){
-  const speed = slSpeed.value/100;
-  camera.vx = dir.x * speed * 420;
-  camera.vy = dir.y * speed * 420;
-  moving = true;
-}
-
-canvas.addEventListener("dblclick", (ev)=>{
+// ---------- Interaction ----------
+canvas.addEventListener("dblclick", ()=>{
   if(moving) return;
-
-  const a = selfAnchor();
-  const mx = ev.clientX - a.x;
-  const my = ev.clientY - a.y;
-
-  const dir = unit({x:mx, y:my||-1});
-  commitDirection(dir);
+  moving = true;
+  const speed = slSpeed.value/100;
+  camera.vy = -speed * 260;
 });
 
 // ---------- Update ----------
 function update(){
   if(moving){
-    camera.x += camera.vx * 0.016;
     camera.y += camera.vy * 0.016;
-
-    camera.vx *= 0.92;
     camera.vy *= 0.92;
 
-    if(Math.hypot(camera.vx,camera.vy) < 6){
+    if(Math.abs(camera.vy) < 1){
       moving = false;
+      camera.vy = 0;
       step++;
       stStep.textContent = step;
 
-      if(step === 1) {
-        spawnOptions(3);
-      } else {
-        spawnOptions(
-          Math.max(1, Math.floor(lerp(2, 30, slOpen.value/100)))
-        );
-      }
+      if(step === 1) spawnHorizon(3);
+      else spawnHorizon(Math.max(1, Math.floor(lerp(2,24, slOpen.value/100))));
     }
   }
 }
 
 // ---------- Draw ----------
-function drawOptions(t){
-  const a = selfAnchor();
+function drawHorizon(){
+  const cx = W/2;
+  const cy = H*0.65;
 
-  for(const o of options){
-    o.pulse += 0.02*o.drift;
+  // origin node
+  ctx.beginPath();
+  ctx.fillStyle = "#111";
+  ctx.arc(cx, cy, 6, 0, Math.PI*2);
+  ctx.fill();
 
-    const wx = camera.x + o.dir.x * o.dist;
-    const wy = camera.y + o.dir.y * o.dist;
+  for(const n of horizon){
+    n.phase += 0.015;
+    const ox = Math.cos(n.phase) * n.orbit;
+    const oy = Math.sin(n.phase) * n.orbit * 0.6;
 
-    const sx = a.x + (wx - camera.x);
-    const sy = a.y + (wy - camera.y);
-
-    const loom = clamp(1 - o.dist/1200, 0, 1);
-    const r = o.r * (1.4 + loom*3.2);
+    const x = cx + Math.sin(n.ang) * n.r + ox;
+    const y = cy - Math.cos(n.ang) * n.r + oy;
 
     // tether
-    ctx.strokeStyle = `rgba(0,0,0,${0.06+0.14*loom})`;
+    ctx.strokeStyle = `rgba(0,0,0,0.06)`;
     ctx.beginPath();
-    ctx.moveTo(a.x,a.y);
-    ctx.lineTo(sx,sy);
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(x,y);
     ctx.stroke();
 
     // node
     ctx.beginPath();
-    ctx.fillStyle = `rgba(90,130,190,${0.42+0.45*loom})`;
-    ctx.arc(
-      sx,
-      sy,
-      r*(1+0.18*Math.sin(o.pulse)),
-      0,Math.PI*2
-    );
+    ctx.fillStyle = `hsla(${n.hue},70%,60%,0.85)`;
+    ctx.arc(x,y,n.size*(0.9+0.15*Math.sin(n.phase)),0,Math.PI*2);
     ctx.fill();
   }
 }
 
-// ---------- Render ----------
-function frame(t){
+// ---------- Loop ----------
+function frame(){
   ctx.clearRect(0,0,W,H);
-
   ctx.fillStyle="#fff";
   ctx.fillRect(0,0,W,H);
 
-  drawOptions(t);
+  drawHorizon();
   update();
 
   requestAnimationFrame(frame);
 }
 
 // ---------- Init ----------
-spawnOptions(3);
+spawnHorizon(3);
 requestAnimationFrame(frame);

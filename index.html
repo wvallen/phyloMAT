@@ -3,65 +3,64 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>phyloMAT 2.0</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <title>phyloMAT</title>
+  <style>
+    :root{
+      --paper:#fff;
+      --ink:#000;
+      --muted: rgba(0,0,0,0.55);
+    }
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      background:var(--paper);
+      color:var(--ink);
+      font-family:"Courier New", Courier, monospace;
+    }
+    .wrap{
+      height:100%;
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .card{
+      text-align:center;
+      max-width:520px;
+    }
+    .logo{
+      width:96px;
+      height:96px;
+      display:block;
+      margin:0 auto 18px auto;
+      animation: spin 28s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    @keyframes spin{
+      from{ transform: rotate(0deg); }
+      to{ transform: rotate(360deg); }
+    }
+    h1{
+      margin:0;
+      font-size:28px;
+      font-weight:normal;
+      letter-spacing:0.5px;
+    }
+    .sub{
+      margin-top:10px;
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
-
-  <div class="brand" id="btnReturn" title="Return to current position">
-    <img class="logoSpin" src="./logo.svg" alt="phyloMAT logo" />
-    <div class="brandText">
-      <div class="brandTitle">phyloMAT 2.0</div>
-      <div class="brandSub">phylo-decision motif analysis tool</div>
+  <div class="wrap">
+    <div class="card">
+      <img class="logo" src="./logo.svg" alt="phyloMAT logo" />
+      <h1>phyloMAT</h1>
+      <div class="sub">Coming soon.</div>
     </div>
   </div>
-
-  <aside class="dock">
-    <div class="row">
-      <button id="btnStart" class="btn">Start</button>
-      <button id="btnTravel" class="btn" disabled>Travel</button>
-      <button id="btnOverview" class="btn">Overview</button>
-      <button id="btnReturn2" class="btn">Return</button>
-      <button id="btnReset" class="btn">Reset</button>
-      <button id="btnPNG" class="btn">PNG</button>
-    </div>
-
-    <div class="row">
-      <div class="k">Openness</div>
-      <input id="slOpen" class="slider" type="range" min="0" max="100" value="55" />
-      <div id="lbOpen" class="v">0.55</div>
-    </div>
-
-    <div class="row">
-      <div class="k">Horizon</div>
-      <input id="slHor" class="slider" type="range" min="2" max="12" value="6" />
-      <div id="lbHor" class="v">6</div>
-    </div>
-
-    <div class="row">
-      <div class="k">Speed</div>
-      <input id="slSpeed" class="slider" type="range" min="30" max="220" value="120" />
-      <div id="lbSpeed" class="v">1.20</div>
-    </div>
-
-    <div class="row">
-      <label class="chk"><input id="togBox" type="checkbox" checked /> box constraint</label>
-      <label class="chk"><input id="togGhost" type="checkbox" checked /> ghost alternatives</label>
-    </div>
-
-    <div class="panel">
-      <div class="stat"><span class="k2">Run</span> <span id="stRun" class="v2">—</span></div>
-      <div class="stat"><span class="k2">Mode</span> <span id="stMode" class="v2">path</span></div>
-      <div class="stat"><span class="k2">Step</span> <span id="stStep" class="v2">0</span></div>
-      <div class="stat"><span class="k2">Options</span> <span id="stOpt" class="v2">0</span></div>
-    </div>
-
-    <div class="foot">
-      click selects · click Travel commits · rapid double-click commits · Overview shows the whole run
-    </div>
-  </aside>
-
-  <script type="module" src="./engine.js"></script>
 </body>
 </html>

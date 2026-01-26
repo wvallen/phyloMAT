@@ -1,303 +1,164 @@
-// phyloMAT 2.0 — prototype engine
-// Decision topology explorer
-// Canvas-only, deterministic per run
+// phyloMAT 2.0 — decision field engine
+// camera-forward, irreversible, field-based
 
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
-
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 let W, H, DPR;
 
 function resize(){
-  DPR = Math.max(1, window.devicePixelRatio || 1);
-  W = canvas.width = Math.floor(window.innerWidth * DPR);
-  H = canvas.height = Math.floor(window.innerHeight * DPR);
-  canvas.style.width = window.innerWidth + "px";
-  canvas.style.height = window.innerHeight + "px";
+  DPR = window.devicePixelRatio || 1;
+  W = canvas.clientWidth = window.innerWidth;
+  H = canvas.clientHeight = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
   ctx.setTransform(DPR,0,0,DPR,0,0);
 }
-window.addEventListener("resize", resize);
+window.addEventListener('resize', resize);
 resize();
 
-/* ------------------ UI ------------------ */
-
-const UI = {
-  btnStart: document.getElementById("btnStart"),
-  btnTravel: document.getElementById("btnTravel"),
-  btnOverview: document.getElementById("btnOverview"),
-  btnReturn: document.getElementById("btnReturn"),
-  btnReturn2: document.getElementById("btnReturn2"),
-  btnReset: document.getElementById("btnReset"),
-  btnPNG: document.getElementById("btnPNG"),
-
-  slOpen: document.getElementById("slOpen"),
-  slHor: document.getElementById("slHor"),
-  slSpeed: document.getElementById("slSpeed"),
-
-  lbOpen: document.getElementById("lbOpen"),
-  lbHor: document.getElementById("lbHor"),
-  lbSpeed: document.getElementById("lbSpeed"),
-
-  stRun: document.getElementById("stRun"),
-  stMode: document.getElementById("stMode"),
-  stStep: document.getElementById("stStep"),
-  stOpt: document.getElementById("stOpt"),
+// ---- UI ----
+const ui = {
+  start: document.getElementById('btnStart'),
+  travel: document.getElementById('btnTravel'),
+  overview: document.getElementById('btnOverview'),
+  reset: document.getElementById('btnReset'),
+  openness: document.getElementById('slOpen'),
+  horizon: document.getElementById('slHor'),
+  speed: document.getElementById('slSpeed'),
+  box: document.getElementById('togBox'),
 };
 
-/* ------------------ Random (deterministic) ------------------ */
+// ---- RNG ----
+let seed = Math.floor(Math.random()*1e9);
+function rand(){ seed = (seed*1664525+1013904223)%4294967296; return seed/4294967296; }
 
-let seed = 1;
-function rand(){
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967295;
-}
-function randN(){
-  return Math.sqrt(-2*Math.log(Math.max(1e-6, rand()))) *
-         Math.cos(2*Math.PI*rand());
-}
-
-/* ------------------ Universe ------------------ */
+// ---- State ----
+let running = false;
+let step = 0;
+let mode = 'path';
 
 const universe = {
-  x0: 80,
-  y0: 80,
-  x1: () => window.innerWidth - 80,
-  y1: () => window.innerHeight - 80
+  minX: 0.1,
+  maxX: 0.9,
+  minY: 0.05,
+  maxY: 0.95
 };
 
-/* ------------------ State ------------------ */
+let you = { x: 0.5, y: 0.85, vx: 0, vy: -1 };
+let spine = [];
+let options = [];
 
-let state;
+// ---- Option generation ----
+function spawnOptions(){
+  options = [];
+  const open = ui.openness.value/100;
+  const horizon = parseInt(ui.horizon.value,10);
 
-function reset(){
-  seed = Math.floor(Math.random()*1e9);
-  state = {
-    agent: {
-      x: window.innerWidth/2,
-      y: window.innerHeight - 120,
-      dx: 0,
-      dy: -1
-    },
-    step: 0,
-    path: [],
-    ghosts: [],
-    options: [],
-    selected: null,
-    cam: {
-      x: window.innerWidth/2,
-      y: window.innerHeight/2,
-      z: 1,
-      tx: 0,
-      ty: 0
-    },
-    mode: "path",
-    running: false
-  };
-  generateOptions();
-  updateUI();
-}
+  const count = step === 0 ? 3 : Math.max(1, Math.round(horizon * (0.4 + open)));
 
-reset();
+  const baseAngle = Math.atan2(you.vy, you.vx);
+  const spread = Math.PI * (0.15 + 0.6*open);
 
-/* ------------------ Decision Field ------------------ */
-
-function generateOptions(){
-  const openness = UI.slOpen.value / 100;
-  const horizon = parseInt(UI.slHor.value,10);
-  const Nmin = 2;
-  const Nmax = 30;
-
-  const N = Math.floor(Nmin + openness * (Nmax - Nmin));
-  const spread = Math.PI * openness;
-
-  const opts = [];
-
-  for(let i=0;i<N;i++){
-    const a = Math.atan2(state.agent.dy, state.agent.dx);
-    const theta = a + randN()*spread*0.35;
-    const d = horizon * 40;
-    const x = state.agent.x + Math.cos(theta)*d;
-    const y = state.agent.y + Math.sin(theta)*d;
-
-    opts.push({
-      x,y,
-      dx: Math.cos(theta),
-      dy: Math.sin(theta),
-      w: Math.max(0.1, 1 - Math.abs(theta-a)/spread),
+  for(let i=0;i<count;i++){
+    const a = baseAngle + (rand()-0.5)*spread;
+    const r = 0.18 + rand()*0.22;
+    options.push({
+      x: you.x + Math.cos(a)*r,
+      y: you.y + Math.sin(a)*r,
+      a,
+      r: 6 + rand()*10,
       pulse: rand()*Math.PI*2
     });
   }
-
-  state.options = opts;
-  state.selected = null;
-  UI.btnTravel.disabled = true;
 }
 
-/* ------------------ Interaction ------------------ */
+// ---- Commit movement ----
+function commitDirection(dx,dy){
+  const m = Math.hypot(dx,dy) || 1;
+  you.vx = dx/m;
+  you.vy = dy/m;
+  ui.travel.disabled = false;
+}
 
-canvas.addEventListener("click", e=>{
-  if(state.mode!=="path") return;
-  const mx = e.clientX;
-  const my = e.clientY;
+function travel(){
+  spine.push({x:you.x,y:you.y});
+  you.x += you.vx*0.18;
+  you.y += you.vy*0.18;
+  step++;
 
-  let best = null;
-  let bestD = 1e9;
-  for(const o of state.options){
-    const dx = o.x - mx;
-    const dy = o.y - my;
-    const d = Math.hypot(dx,dy);
-    if(d<28 && d<bestD){
-      best = o;
-      bestD = d;
-    }
+  if(ui.box.checked){
+    you.x = Math.max(universe.minX, Math.min(universe.maxX, you.x));
+    you.y = Math.max(universe.minY, Math.min(universe.maxY, you.y));
   }
-  if(best){
-    state.selected = best;
-    UI.btnTravel.disabled = false;
-  }
+
+  spawnOptions();
+}
+
+// ---- Input ----
+canvas.addEventListener('dblclick', e=>{
+  if(!running) return;
+  const nx = e.clientX/W - you.x;
+  const ny = e.clientY/H - you.y;
+  commitDirection(nx,ny);
+  travel();
 });
 
-canvas.addEventListener("dblclick", ()=>{
-  if(state.selected) commit();
-});
+ui.start.onclick = ()=>{
+  running = true;
+  step = 0;
+  spine = [];
+  you = { x:0.5, y:0.85, vx:0, vy:-1 };
+  spawnOptions();
+};
 
-UI.btnTravel.onclick = ()=>commit();
+ui.travel.onclick = travel;
+ui.reset.onclick = ()=>{
+  running = false;
+  step = 0;
+  spine = [];
+  options = [];
+};
 
-function commit(){
-  const sel = state.selected;
-  if(!sel) return;
-
-  // record path
-  state.path.push({
-    x0: state.agent.x,
-    y0: state.agent.y,
-    x1: sel.x,
-    y1: sel.y
-  });
-
-  // rejected futures become ghosts
-  for(const o of state.options){
-    if(o!==sel){
-      state.ghosts.push({
-        x: state.agent.x,
-        y: state.agent.y,
-        dx: o.dx,
-        dy: o.dy,
-        life: 1
-      });
-    }
-  }
-
-  // move agent
-  state.agent.x = sel.x;
-  state.agent.y = sel.y;
-  state.agent.dx = sel.dx;
-  state.agent.dy = sel.dy;
-
-  state.step++;
-  generateOptions();
-  updateUI();
-}
-
-/* ------------------ Camera ------------------ */
-
-function updateCamera(dt){
-  const speed = UI.slSpeed.value / 100;
-  state.cam.tx = state.agent.x;
-  state.cam.ty = state.agent.y - 120;
-
-  state.cam.x += (state.cam.tx - state.cam.x) * dt * 2 * speed;
-  state.cam.y += (state.cam.ty - state.cam.y) * dt * 2 * speed;
-}
-
-/* ------------------ Drawing ------------------ */
-
+// ---- Draw ----
 function draw(){
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0,0,W,H);
 
-  ctx.save();
-  ctx.translate(
-    window.innerWidth/2 - state.cam.x,
-    window.innerHeight/2 - state.cam.y
-  );
-
-  // ghosts
-  for(const g of state.ghosts){
-    g.x += g.dx * 0.4;
-    g.y += g.dy * 0.4;
-    g.life *= 0.997;
-
-    ctx.strokeStyle = `rgba(120,120,120,${0.08*g.life})`;
+  // spine
+  if(spine.length>1){
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(g.x, g.y);
-    ctx.lineTo(g.x - g.dx*20, g.y - g.dy*20);
-    ctx.stroke();
-  }
-
-  // tree
-  ctx.strokeStyle = "rgba(0,0,0,0.35)";
-  ctx.lineWidth = 1.2;
-  for(const s of state.path){
-    ctx.beginPath();
-    ctx.moveTo(s.x0,s.y0);
-    ctx.lineTo(s.x1,s.y1);
+    spine.forEach((p,i)=>{
+      if(i===0) ctx.moveTo(p.x*W,p.y*H);
+      else ctx.lineTo(p.x*W,p.y*H);
+    });
+    ctx.lineTo(you.x*W,you.y*H);
     ctx.stroke();
   }
 
   // options
-  for(const o of state.options){
-    o.pulse += 0.03;
-    const r = 10 + 6*Math.sin(o.pulse);
-
-    ctx.fillStyle = (o===state.selected)
-      ? "rgba(80,160,220,0.9)"
-      : "rgba(120,120,120,0.65)";
-
+  options.forEach(o=>{
+    o.pulse += 0.04;
+    const pr = o.r + Math.sin(o.pulse)*2;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.arc(o.x,o.y,r,0,Math.PI*2);
+    ctx.arc(o.x*W,o.y*H,pr,0,Math.PI*2);
     ctx.fill();
-  }
 
-  // agent
-  ctx.fillStyle = "#000";
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.moveTo(you.x*W,you.y*H);
+    ctx.lineTo(o.x*W,o.y*H);
+    ctx.stroke();
+  });
+
+  // you
+  ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.arc(state.agent.x,state.agent.y,6,0,Math.PI*2);
+  ctx.arc(you.x*W,you.y*H,5,0,Math.PI*2);
   ctx.fill();
 
-  ctx.restore();
+  requestAnimationFrame(draw);
 }
 
-/* ------------------ Loop ------------------ */
-
-let last = performance.now();
-function loop(t){
-  const dt = Math.min(0.05,(t-last)/1000);
-  last = t;
-  updateCamera(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-
-/* ------------------ UI ------------------ */
-
-function updateUI(){
-  UI.lbOpen.textContent = (UI.slOpen.value/100).toFixed(2);
-  UI.lbHor.textContent = UI.slHor.value;
-  UI.lbSpeed.textContent = (UI.slSpeed.value/100).toFixed(2);
-  UI.stStep.textContent = state.step;
-  UI.stOpt.textContent = state.options.length;
-  UI.stMode.textContent = state.mode;
-}
-
-UI.slOpen.oninput = ()=>{ updateUI(); generateOptions(); };
-UI.slHor.oninput = ()=>{ updateUI(); generateOptions(); };
-UI.slSpeed.oninput = updateUI;
-
-UI.btnReset.onclick = reset;
-UI.btnPNG.onclick = ()=>{
-  const a=document.createElement("a");
-  a.download="phylomat_run.png";
-  a.href=canvas.toDataURL();
-  a.click();
-};
+draw();

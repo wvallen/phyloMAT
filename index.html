@@ -1,65 +1,93 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
   <title>phyloMAT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <style>
-    :root{
-      --paper:#fff;
-      --ink:#000;
-      --muted: rgba(0,0,0,0.55);
+    :root {
+      --ink: #111;
+      --soft: #777;
+      --bg: #ffffff;
     }
-    html,body{
-      margin:0;
-      width:100%;
-      height:100%;
-      background:var(--paper);
-      color:var(--ink);
-      font-family:"Courier New", Courier, monospace;
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      font-family: Georgia, "Times New Roman", serif;
     }
-    .wrap{
-      height:100%;
-      display:grid;
-      place-items:center;
-      padding:24px;
+
+    .wrap {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .card{
-      text-align:center;
-      max-width:520px;
+
+    .lockup {
+      display: flex;
+      align-items: center;
+      gap: 22px;
     }
-    .logo{
-      width:96px;
-      height:96px;
-      display:block;
-      margin:0 auto 18px auto;
-      animation: spin 28s linear infinite;
-      transform-origin: 50% 50%;
+
+    .logo {
+      width: 88px;
+      height: 88px;
+      animation: slowspin 28s linear infinite;
     }
-    @keyframes spin{
-      from{ transform: rotate(0deg); }
-      to{ transform: rotate(360deg); }
+
+    @keyframes slowspin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
     }
-    h1{
-      margin:0;
-      font-size:28px;
-      font-weight:normal;
-      letter-spacing:0.5px;
+
+    .wordmark {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
     }
-    .sub{
-      margin-top:10px;
-      font-size:14px;
-      color:var(--muted);
-      line-height:1.5;
+
+    .title {
+      font-size: 44px;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      color: var(--soft);
+    }
+
+    /* small screens */
+    @media (max-width: 600px) {
+      .logo {
+        width: 64px;
+        height: 64px;
+      }
+      .title {
+        font-size: 32px;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="card">
-      <img class="logo" src="./logo.svg" alt="phyloMAT logo" />
-      <h1>phyloMAT</h1>
-      <div class="sub">Coming soon.</div>
+    <div class="lockup">
+      <!-- replace src with your logo filename -->
+      <img class="logo" src="logo.svg" alt="phyloMAT logo" />
+
+      <div class="wordmark">
+        <div class="title">phyloMAT</div>
+        <div class="subtitle">Coming soon.</div>
+      </div>
     </div>
   </div>
 </body>

@@ -1,7 +1,7 @@
-// phyloMAT 2.0 — Decision Field → Hidden Tree → Classic Phylo Artifact
-// Play: only next decision field (qualities: density/pulse/jitter).
-// Complete at MAX_STEPS (wall). Then Overview reveals a left→right phylo tree.
-// Colors are muted; meaning comes from density/pulse/jitter; final tree lines are thicker.
+// phyloMAT 2.0 — Clean Final Prototype v1.1
+// Play: 3-voice decision field (density/pulse/jitter). Click selects; Travel commits; dblclick commits.
+// Complete at MAX_STEPS (wall). Only then Overview reveals classic left→right phylo tree.
+// Single loop, no duplicate handlers.
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -20,7 +20,7 @@ function resize(){
 window.addEventListener("resize", resize);
 resize();
 
-// ---- UI ----
+// ---------- UI ----------
 const UI = {
   btnStart: document.getElementById("btnStart"),
   btnTravel: document.getElementById("btnTravel"),
@@ -38,13 +38,15 @@ const UI = {
   lbHor: document.getElementById("lbHor"),
   lbSpeed: document.getElementById("lbSpeed"),
 
+  togBox: document.getElementById("togBox"),
+  togGhost: document.getElementById("togGhost"),
+
   stRun: document.getElementById("stRun"),
   stMode: document.getElementById("stMode"),
   stStep: document.getElementById("stStep"),
   stOpt: document.getElementById("stOpt"),
 };
 
-// ---- helpers ----
 const TAU = Math.PI*2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -55,73 +57,80 @@ function anchor(){
   return { x: W*0.50, y: H*0.78 };
 }
 
-// ---- run config ----
+// 3 voice hues (muted)
+const hues = [205, 245, 285];
+
+// ---------- run model ----------
 const MAX_STEPS = 30;
 
-// ---- state ----
 let runID = 0;
-let mode = "path";         // path | overview
+let mode = "path";        // path | overview
 let step = 0;
 let complete = false;
 
-let options = [];
+let options = [];         // 3 options always
 let selected = null;
 
 let traveling = false;
 let tMove = 0;
-let moveDur = 0.55;
+let moveDur = 0.6;
 let fade = 0;
 
-let optA = [];
-let optB = [];
+// record decisions: per step store chosen idx and the 3 option qualities
+let decisions = []; // [{chosen:0|1|2, opts:[{density,jitter,pulse} x3]}]
 
-let decisions = []; // history: for each step: chosen idx + qualities for each option
+// record ghosts for overview (optional)
+let ghosts = [];    // [{x0,y0,x1,y1,a}]
+let spine = [];     // [{x0,y0,x1,y1,w}] for overview styling
 
-// ---- option model ----
-// Each option has qualities:
-// density ∈ [0,1]  (cluster count / “richness”)
-// jitter  ∈ [0,1]  (motion instability)
-// pulse   ∈ [0,1]  (breathing strength)
-// During play, render as a cloud cluster with those traits.
+// ---------- option qualities ----------
+function makeQualities(){
+  const O = UI.slOpen.value/100;         // openness -> density
+  const Hh = clamp(+UI.slHor.value/12,0,1); // horizon -> jitter
+  const density = clamp(lerp(0.15, 0.95, 0.25 + 0.75*O) * rand(0.8, 1.15), 0, 1);
+  const jitter  = clamp(lerp(0.05, 0.95, Hh) * rand(0.75,1.2), 0, 1);
+  const pulse   = clamp(lerp(0.20, 0.95, 0.35 + 0.65*density) * rand(0.85,1.1), 0, 1);
+  return { density, jitter, pulse };
+}
+
 function makeOption(idx){
-  const O = UI.slOpen.value/100;
-  const J = clamp((+UI.slHor.value)/12, 0, 1); // horizon → jitter range
-
-  // density: openness biases high densities
-  const density = clamp(lerp(0.15, 0.95, 0.25 + 0.75*O) * rand(0.75, 1.15), 0, 1);
-
-  // jitter: horizon biases instability
-  const jitter = clamp(lerp(0.05, 0.95, J) * rand(0.7, 1.2), 0, 1);
-
-  // pulse: tied to density a bit (richer futures “breathe” more)
-  const pulse = clamp(lerp(0.20, 0.95, 0.35 + 0.65*density) * rand(0.8, 1.1), 0, 1);
-
-  // cluster geometry (3 anchors in an arc)
-  const spread = lerp(190, 320, O);
-  const arcY = -lerp(190, 430, clamp((+UI.slHor.value)/12, 0, 1));
-  const x = (idx-1) * spread + rand(-28, 28);
-  const y = arcY + rand(-22, 22);
-
+  const q = makeQualities();
   return {
     idx,
-    x, y,
-    density, jitter, pulse,
-    phase: rand(0, TAU),
-    phase2: rand(0, TAU),
+    ...q,
+    // position in a forward band
+    x: 0, y: 0,
+    // anim params
+    phase: rand(0,TAU),
+    phase2: rand(0,TAU),
+    omega: lerp(0.6, 2.0, q.pulse),
+    omega2: lerp(0.8, 3.0, q.jitter),
   };
 }
 
-function genDecisionField(first=false){
-  // First step: exactly 3 options
-  const count = 3;
-  const field = [];
-  for(let i=0;i<count;i++){
-    field.push(makeOption(i));
+function genField(){
+  // Always 3 options (few voices model)
+  const O = UI.slOpen.value/100;
+  const bandDy = -lerp(190, 430, clamp(+UI.slHor.value/12,0,1));
+  const spread = lerp(180, 260, O);
+
+  const a = anchor();
+  const cx = a.x;
+  const cy = a.y;
+
+  options = [makeOption(0), makeOption(1), makeOption(2)];
+
+  // place them as a gentle arc band
+  const centers = [-spread, 0, +spread];
+  for(let i=0;i<3;i++){
+    options[i].x = cx + centers[i] + rand(-30,30);
+    options[i].y = cy + bandDy + rand(-25,25);
   }
-  return field;
+
+  selected = null;
 }
 
-// ---- UI sync ----
+// ---------- UI sync ----------
 function syncUI(){
   UI.lbOpen.textContent = (UI.slOpen.value/100).toFixed(2);
   UI.lbHor.textContent = UI.slHor.value;
@@ -130,46 +139,46 @@ function syncUI(){
   UI.stRun.textContent = runID ? `run-${runID}` : "—";
   UI.stMode.textContent = mode;
   UI.stStep.textContent = String(step);
-  UI.stOpt.textContent = String(optA.length || 0);
+  UI.stOpt.textContent  = String(options.length);
 
-  // overview only meaningful after completion
-  UI.btnOverview.disabled = !complete;
-
-  // travel enabled if selection exists and in path mode and not moving and not complete
   UI.btnTravel.disabled = !(mode==="path" && !complete && !traveling && selected !== null);
+  UI.btnOverview.disabled = !complete;
 }
 
-// ---- start/reset ----
+// ---------- start/reset ----------
 function startRun(){
   runID += 1;
   mode = "path";
   step = 0;
   complete = false;
-
-  decisions = [];
-  selected = null;
   traveling = false;
   tMove = 0;
   fade = 0;
 
-  optA = genDecisionField(true);
-  optB = [];
+  decisions = [];
+  ghosts = [];
+  spine = [];
+
+  genField();
   syncUI();
 }
 
-// Reset = start new run
 UI.btnStart.addEventListener("click", startRun);
 UI.btnReset.addEventListener("click", startRun);
 
-// PNG export
 UI.btnPNG.addEventListener("click", ()=>{
   const a = document.createElement("a");
-  a.download = `phylomat_${runID || "run"}.png`;
+  a.download = `phylomat_${runID||"run"}.png`;
   a.href = canvas.toDataURL("image/png");
   a.click();
 });
 
-// Return buttons (from overview)
+UI.btnOverview.addEventListener("click", ()=>{
+  if(!complete) return;
+  mode = "overview";
+  syncUI();
+});
+
 function returnToPath(){
   mode = "path";
   syncUI();
@@ -177,566 +186,324 @@ function returnToPath(){
 UI.btnReturn.addEventListener("click", returnToPath);
 UI.btnReturn2.addEventListener("click", returnToPath);
 
-// Overview
-UI.btnOverview.addEventListener("click", ()=>{
-  if(!complete) return;
-  mode = "overview";
-  syncUI();
-});
-
-// sliders affect next field immediately (and the feel)
-["slOpen","slHor","slSpeed"].forEach(id=>{
+// sliders regenerate field when idle
+["slOpen","slHor"].forEach(id=>{
   UI[id].addEventListener("input", ()=>{
-    // keep current field, but re-generate it when not traveling so it reflects the new universe
     if(mode==="path" && !traveling && !complete){
-      optA = genDecisionField(step===0);
-      selected = null;
+      genField();
+      syncUI();
     }
-    syncUI();
   });
 });
+UI.slSpeed.addEventListener("input", syncUI);
 
-// ---- picking and commit ----
-function pickOption(mx,my){
-  const a = anchor();
-  const lx = mx - (a.x);
-  const ly = my - (a.y);
-
-  // choose closest option center (in local coords)
-  let best = null;
-  let bestD = Infinity;
-  for(const o of optA){
-    const dx = lx - o.x;
-    const dy = ly - o.y;
+// ---------- selection + commit ----------
+function pick(mx,my){
+  let best=null, bestD=Infinity;
+  for(const o of options){
+    const dx = mx - o.x;
+    const dy = my - o.y;
     const d2 = dx*dx + dy*dy;
-    if(d2 < bestD){ bestD = d2; best = o; }
+    if(d2 < bestD){ bestD=d2; best=o; }
   }
-  // threshold based on density/pulse (intuitive selection)
-  if(best && bestD < 85*85) return best;
+  if(best && bestD < 80*80) return best;
   return null;
 }
 
 canvas.addEventListener("click", (ev)=>{
   if(mode!=="path" || traveling || complete) return;
-  selected = pickOption(ev.clientX, ev.clientY);
+  selected = pick(ev.clientX, ev.clientY);
   syncUI();
 });
 
 canvas.addEventListener("dblclick", (ev)=>{
   if(mode!=="path" || traveling || complete) return;
-  const o = pickOption(ev.clientX, ev.clientY);
+  const o = pick(ev.clientX, ev.clientY);
   if(o) selected = o;
-  if(selected) beginTravel(selected);
+  if(selected) beginCommit(selected);
 });
 
-// Travel button
 UI.btnTravel.addEventListener("click", ()=>{
   if(mode==="path" && selected && !traveling && !complete){
-    beginTravel(selected);
+    beginCommit(selected);
   }
 });
 
-function beginTravel(choice){
+function beginCommit(choice){
   traveling = true;
   tMove = 0;
   fade = 0;
 
-  // speed controls duration (higher speed -> shorter)
   const sp = UI.slSpeed.value/100;
   moveDur = clamp(0.95 - 0.55*sp, 0.20, 0.95);
 
-  // record decision: store all 3 options qualities and chosen index
-  const snapshot = optA.map(o=>({
-    density:o.density, jitter:o.jitter, pulse:o.pulse
-  }));
-  decisions.push({ chosen: choice.idx, opts: snapshot });
+  // record this step
+  decisions.push({
+    chosen: choice.idx,
+    opts: options.map(o=>({density:o.density, jitter:o.jitter, pulse:o.pulse}))
+  });
 
-  step += 1;
-
-  // next field: still 3 choices each step (simple game)
-  // later you can increase with openness; keep 3 for now to maintain “voices”
-  optB = genDecisionField(false);
-
-  selected = null;
-  syncUI();
-}
-
-// ---- animation tick ----
-let last = performance.now();
-function loop(t){
-  const dt = Math.min(0.05, (t-last)/1000);
-  last = t;
-
-  // animate phases for alive breathing
-  for(const o of optA){
-    o.phase += dt * (0.8 + 2.2*o.pulse);
-    o.phase2 += dt * (0.6 + 3.2*o.jitter);
-  }
-  for(const o of optB){
-    o.phase += dt * (0.8 + 2.2*o.pulse);
-    o.phase2 += dt * (0.6 + 3.2*o.jitter);
-  }
-
-  if(traveling){
-    tMove += dt / moveDur;
-    const tt = clamp(tMove, 0, 1);
-    const s = ease(tt);
-
-    // bloom transition: fade A out, B in
-    fade = clamp((tt - 0.35) / 0.65, 0, 1);
-
-    // after travel completes, switch fields
-    if(tt >= 1){
-      traveling = false;
-      optA = optB;
-      optB = [];
-      fade = 0;
-
-      // completion at wall
-      if(step >= MAX_STEPS){
-        complete = true;
-        // hide the field by leaving optA empty (tree is hidden until complete)
-        optA = [];
-        optB = [];
-      }
-      syncUI();
+  // ghost segments in overview: represent “paths not taken” as faint
+  if(UI.togGhost.checked){
+    const a = anchor();
+    for(const o of options){
+      if(o.idx === choice.idx) continue;
+      ghosts.push({ x0:a.x, y0:a.y, x1:o.x, y1:o.y, a:0.10 });
     }
   }
 
-  draw();
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+  step += 1;
 
-// ---- drawing (PATH MODE) ----
+  // end condition: wall is step count
+  if(step >= MAX_STEPS){
+    complete = true;
+  }
+
+  // next field prepared now (but tree hidden until complete)
+  // we keep field visible even if complete; tree revealed in Overview only
+  genField();
+  selected = null;
+
+  syncUI();
+}
+
+// ---------- draw: path ----------
 function drawPath(){
   ctx.fillStyle = "#fff";
   ctx.fillRect(0,0,W,H);
 
   const a = anchor();
 
-  // draw “you”
+  // you
   ctx.fillStyle = "rgba(0,0,0,0.95)";
   ctx.beginPath();
   ctx.arc(a.x, a.y, 6.2, 0, TAU);
   ctx.fill();
 
-  // if complete, keep it quiet
-  if(complete){
-    ctx.fillStyle = "rgba(0,0,0,0.30)";
-    ctx.font = '14px "Courier New", monospace';
-    ctx.fillText("complete", 18, H-18);
-    return;
-  }
+  // field always visible (even if complete); overview button is the reveal
+  const fieldAlpha = traveling ? 0.35 : 1.0;
 
-  // draw current and next field with crossfade
-  drawField(optA, 1 - (traveling ? fade : 0), a.x, a.y);
-  if(optB.length){
-    drawField(optB, (traveling ? fade : 0), a.x, a.y);
-  }
-}
+  for(const o of options){
+    // animate qualities
+    o.phase += 0.02*o.omega;
+    o.phase2 += 0.02*o.omega2;
 
-function drawField(field, alpha, ax, ay){
-  if(alpha <= 0) return;
+    const densityCount = Math.floor(lerp(8, 30, o.density));
+    const jitterAmp = lerp(2, 20, o.jitter);
+    const pulse = 0.85 + 0.15*Math.sin(o.phase);
 
-  for(const o of field){
-    // qualities → visuals
-    const densityCount = Math.floor(lerp(6, 30, o.density));
-    const jitterAmp = lerp(2, 22, o.jitter);
-    const pulseAmp  = lerp(0.06, 0.20, o.pulse);
-
-    // center of this option
-    const cx = ax + o.x;
-    const cy = ay + o.y;
-
-    // line tension is an indicator: high pulse+density taut, high jitter limp
+    // tension derived from qualities
     const tension = clamp(0.15 + 0.55*o.density + 0.35*o.pulse - 0.45*o.jitter, 0, 1);
     const sag = (1 - tension) * 70;
 
-    // tether (curved for limp)
-    ctx.strokeStyle = `rgba(0,0,0,${alpha*(0.03 + 0.14*tension)})`;
+    // tether
+    ctx.strokeStyle = `rgba(0,0,0,${fieldAlpha*(0.03 + 0.14*tension)})`;
     ctx.lineWidth = 0.8 + 2.0*tension;
     ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo((ax+cx)/2, (ay+cy)/2 + sag, cx, cy);
+    ctx.moveTo(a.x, a.y);
+    ctx.quadraticCurveTo((a.x+o.x)/2, (a.y+o.y)/2 + sag, o.x, o.y);
     ctx.stroke();
 
-    // option “cloud” = multiple small points (density)
-    // points orbit + jitter; pulse modulates alpha
-    const pulse = 0.85 + 0.15*Math.sin(o.phase);
-    const glowA = alpha*(0.08 + 0.12*tension)*pulse;
-
-    // muted grey-blue palette (not random color meaning)
-    const base = `rgba(90,120,170,`;
-
-    // selection ring (subtle)
-    // selection computed by click; we identify by idx
-    // draw later after cloud
-
+    // cloud points (no random color meaning)
     for(let i=0;i<densityCount;i++){
       const ang = (i/densityCount)*TAU + o.phase2*0.6;
-      const rr = lerp(6, 18, o.density) + Math.sin(o.phase + i)*3;
-      const px = cx + Math.cos(ang)*rr + rand(-jitterAmp,jitterAmp)*0.06;
-      const py = cy + Math.sin(ang)*rr*0.7 + rand(-jitterAmp,jitterAmp)*0.06;
+      const rr = lerp(6, 18, o.density) + Math.sin(o.phase + i)*2;
+      const px = o.x + Math.cos(ang)*rr + (Math.random()-0.5)*jitterAmp*0.15;
+      const py = o.y + Math.sin(ang)*rr*0.7 + (Math.random()-0.5)*jitterAmp*0.15;
 
       const r = lerp(1.4, 2.8, o.density) * (0.9 + 0.2*Math.sin(o.phase + i));
-      ctx.fillStyle = base + `${glowA})`;
+      ctx.fillStyle = `rgba(90,120,170,${fieldAlpha*(0.06 + 0.12*tension)*pulse})`;
       ctx.beginPath();
       ctx.arc(px, py, r, 0, TAU);
       ctx.fill();
     }
 
-    // core node (small, not balloon)
-    const coreR = lerp(5.0, 7.2, 0.4 + 0.6*o.density) * (1 + pulseAmp*Math.sin(o.phase));
-    ctx.fillStyle = `rgba(0,0,0,${alpha*(0.10 + 0.20*tension)})`;
+    // core (muted hue per voice, but meaning is in qualities)
+    const hue = hues[o.idx];
+    const sat = 28 + 34*o.density;
+    const lit = 60;
+
+    const coreR = lerp(5.5, 7.5, o.density) * (1 + 0.10*Math.sin(o.phase));
+
+    ctx.fillStyle = `hsla(${hue},${sat}%,${lit}%,${fieldAlpha*(0.10 + 0.18*tension)})`;
     ctx.beginPath();
-    ctx.arc(cx, cy, coreR*1.7, 0, TAU);
+    ctx.arc(o.x, o.y, coreR*1.7, 0, TAU);
     ctx.fill();
 
-    ctx.fillStyle = `rgba(60,80,120,${alpha*(0.35 + 0.35*tension)})`;
+    ctx.fillStyle = `hsla(${hue},${sat}%,${lit-8}%,${fieldAlpha*(0.40 + 0.38*tension)})`;
     ctx.beginPath();
-    ctx.arc(cx, cy, coreR, 0, TAU);
+    ctx.arc(o.x, o.y, coreR, 0, TAU);
     ctx.fill();
 
-    // selected highlight
+    // selection ring
     if(selected && selected.idx === o.idx){
-      ctx.strokeStyle = `rgba(0,0,0,${alpha*0.35})`;
+      ctx.strokeStyle = `rgba(0,0,0,${fieldAlpha*0.35})`;
       ctx.lineWidth = 2.0;
       ctx.beginPath();
-      ctx.arc(cx, cy, coreR*1.35, 0, TAU);
+      ctx.arc(o.x, o.y, coreR*1.35, 0, TAU);
       ctx.stroke();
     }
   }
+
+  // subtle completion hint
+  if(complete){
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    ctx.font = '14px "Courier New", monospace';
+    ctx.fillText("complete — Overview reveals tree", 18, H-18);
+  }
 }
 
-// ---- drawing (OVERVIEW) ----
-// Classic phylo tree: left→right; branching at each step (3 children; one continues, two terminate).
-// The tree is hidden during play and shown only when complete.
+// ---------- draw: overview (classic phylo) ----------
 function drawOverview(){
   ctx.fillStyle = "#fff";
   ctx.fillRect(0,0,W,H);
 
-  if(!complete){
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.font = '14px "Courier New", monospace';
-    ctx.fillText("complete the run to reveal the tree", 18, H-18);
-    return;
-  }
-
-  // Build leaf list: each step adds 2 terminal branches plus 1 continuing, so leaves = 2*MAX_STEPS + 1
+  // classic phylo silhouette: left->right, branching each step into 3 (one continues)
   const leaves = 2*MAX_STEPS + 1;
-  const topPad = 60, botPad = 60, leftPad = 80, rightPad = 80;
+  const topPad=60, botPad=60, leftPad=80, rightPad=80;
 
-  // y positions evenly spaced
   const ys = [];
   for(let i=0;i<leaves;i++){
     ys.push(lerp(topPad, H-botPad, i/(leaves-1)));
   }
 
-  // We traverse decisions and assign y positions:
-  // continuing path always takes the next available “middle” y in the remaining block.
-  // terminal branches take adjacent y slots.
   let yIndex = 0;
   function allocTriplet(){
-    // allocate 3 leaves: left terminal, continuing, right terminal
-    const y0 = ys[yIndex++]; // terminal
-    const y1 = ys[yIndex++]; // continuing
-    const y2 = ys[yIndex++]; // terminal
+    const y0 = ys[yIndex++], y1 = ys[yIndex++], y2 = ys[yIndex++];
     return [y0,y1,y2];
   }
 
-  // Root at x = leftPad
   const x0 = leftPad;
   const xStep = (W - leftPad - rightPad) / MAX_STEPS;
 
-  // segments to draw as curves: {x0,y0,x1,y1,w,a}
+  // build all branches
   const segs = [];
-
-  // Start with one “current” node at root y = center of leaf range
-  // We build forward: at each step create three children; choose one continues.
   let curX = x0;
   let curY = (ys[0] + ys[ys.length-1]) * 0.5;
-
-  // Reset y allocation
   yIndex = 0;
 
   for(let k=0;k<MAX_STEPS;k++){
-    const dec = decisions[k] || { chosen: 1, opts: [
+    const dec = decisions[k] || { chosen: 1, opts:[
       {density:0.4,jitter:0.3,pulse:0.4},
       {density:0.4,jitter:0.3,pulse:0.4},
       {density:0.4,jitter:0.3,pulse:0.4}
     ]};
 
-    const [yL, yC, yR] = allocTriplet();
+    const [yL,yC,yR] = allocTriplet();
     const nextX = x0 + (k+1)*xStep;
 
-    // map option qualities into branch “character”
-    function branchParams(opt){
-      const d = opt.density, j = opt.jitter, p = opt.pulse;
-      const w = 2.2 + 2.6*d + 0.6*p;     // thicker for dense/pulsed
-      const wiggle = 6 + 40*j;           // more jitter → more curvature
-      const alpha = 0.12 + 0.38*(d*0.6 + p*0.4); // more visible if dense/pulsed
-      return { w, wiggle, alpha };
+    function params(opt){
+      const d=opt.density, j=opt.jitter, p=opt.pulse;
+      const w = 3.2 + 4.5*d + 1.2*p;        // thicker overall
+      const wig = 10 + 55*j;                 // curvature from jitter
+      const a = 0.10 + 0.45*(0.55*d + 0.45*p);
+      return {w, wig, a};
     }
 
-    const p0 = branchParams(dec.opts[0]);
-    const p1 = branchParams(dec.opts[1]);
-    const p2 = branchParams(dec.opts[2]);
+    const p0=params(dec.opts[0]), p1=params(dec.opts[1]), p2=params(dec.opts[2]);
+    segs.push(curve(curX,curY,nextX,yL,p0));
+    segs.push(curve(curX,curY,nextX,yC,p1));
+    segs.push(curve(curX,curY,nextX,yR,p2));
 
-    // Two terminal branches + one continuing
-    segs.push(curveSeg(curX, curY, nextX, yL, p0));
-    segs.push(curveSeg(curX, curY, nextX, yC, p1));
-    segs.push(curveSeg(curX, curY, nextX, yR, p2));
-
-    // chosen continues: map chosen index to which of the three y's becomes next curY
-    const nextY = (dec.chosen === 0) ? yL : (dec.chosen === 1 ? yC : yR);
+    curY = (dec.chosen===0)?yL:((dec.chosen===1)?yC:yR);
     curX = nextX;
-    curY = nextY;
   }
 
-  // draw faint background branches first
+  // draw faint background branches
+  ctx.lineCap = "round";
   for(const s of segs){
-    ctx.strokeStyle = `rgba(0,0,0,${s.a*0.65})`;
-    ctx.lineWidth = s.w;
+    ctx.strokeStyle = `rgba(0,0,0,${s.a})`;
+    ctx.lineWidth = s.w * 0.55; // background thinner but still present
     ctx.beginPath();
     ctx.moveTo(s.x0,s.y0);
     ctx.bezierCurveTo(s.cx1,s.cy1,s.cx2,s.cy2,s.x1,s.y1);
     ctx.stroke();
   }
 
-  // overlay chosen path thicker + darker
-  // reconstruct chosen path segments
+  // draw chosen path thicker and darker
   let px = x0;
   let py = (ys[0] + ys[ys.length-1]) * 0.5;
   yIndex = 0;
   for(let k=0;k<MAX_STEPS;k++){
-    const dec = decisions[k] || { chosen: 1, opts: [
+    const dec = decisions[k] || { chosen: 1, opts:[
       {density:0.4,jitter:0.3,pulse:0.4},
       {density:0.4,jitter:0.3,pulse:0.4},
       {density:0.4,jitter:0.3,pulse:0.4}
     ]};
-
-    const [yL, yC, yR] = allocTriplet();
+    const [yL,yC,yR] = allocTriplet();
     const nx = x0 + (k+1)*xStep;
+    const ny = (dec.chosen===0)?yL:((dec.chosen===1)?yC:yR);
 
     const opt = dec.opts[dec.chosen];
-    const w = 3.4 + 3.2*opt.density + 0.8*opt.pulse;
-    const wiggle = 6 + 35*opt.jitter;
+    const w = 4.0 + 5.0*opt.density + 1.6*opt.pulse;
+    const wig = 10 + 50*opt.jitter;
 
-    const nextY = (dec.chosen === 0) ? yL : (dec.chosen === 1 ? yC : yR);
-
-    const seg = curveSeg(px, py, nx, nextY, {w, wiggle, alpha:1});
-    ctx.strokeStyle = `rgba(0,0,0,0.70)`;
-    ctx.lineWidth = seg.w;
+    const seg = curve(px,py,nx,ny,{w,wig,a:1});
+    ctx.strokeStyle = "rgba(0,0,0,0.80)";
+    ctx.lineWidth = w;
     ctx.beginPath();
     ctx.moveTo(seg.x0,seg.y0);
     ctx.bezierCurveTo(seg.cx1,seg.cy1,seg.cx2,seg.cy2,seg.x1,seg.y1);
     ctx.stroke();
 
-    px = nx;
-    py = nextY;
+    px=nx; py=ny;
   }
 
-  // “wall” at far right
+  // draw ghosts lightly (optional)
+  if(UI.togGhost.checked && ghosts.length){
+    ctx.strokeStyle = "rgba(0,0,0,0.05)";
+    ctx.lineWidth = 1.0;
+    for(const g of ghosts){
+      ctx.beginPath();
+      ctx.moveTo(g.x0, g.y0);
+      ctx.lineTo(g.x1, g.y1);
+      ctx.stroke();
+    }
+  }
+
+  // wall line at far right
   ctx.strokeStyle = "rgba(0,0,0,0.18)";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(W-rightPad, topPad);
   ctx.lineTo(W-rightPad, H-botPad);
   ctx.stroke();
 }
 
-function curveSeg(x0,y0,x1,y1, p){
-  const w = p.w;
-  const a = p.alpha ?? 1;
-  const wiggle = p.wiggle ?? 12;
-
-  // control points: curve depends on wiggle; keep it stable and organic
-  const dx = x1-x0;
-  const dy = y1-y0;
-
+function curve(x0,y0,x1,y1,p){
+  const dx=x1-x0, dy=y1-y0;
+  const wig = p.wig || 20;
   const cx1 = x0 + dx*0.35;
-  const cy1 = y0 + dy*0.15 + rand(-wiggle, wiggle);
-
+  const cy1 = y0 + dy*0.15 + rand(-wig, wig);
   const cx2 = x0 + dx*0.70;
-  const cy2 = y0 + dy*0.85 + rand(-wiggle, wiggle);
-
-  return {x0,y0,x1,y1,cx1,cy1,cx2,cy2,w,a};
+  const cy2 = y0 + dy*0.85 + rand(-wig, wig);
+  return {x0,y0,x1,y1,cx1,cy1,cx2,cy2,w:p.w,a:p.a};
 }
 
-// ---- master draw ----
-function draw(){
-  if(mode === "overview"){
-    drawOverview();
-  } else {
-    drawPath();
-  }
-}
-
-// ---- loop ----
+// ---------- loop ----------
+let last = performance.now();
 function loop(t){
-  draw();
-  syncUI();
-  requestAnimationFrame(loop);
-}
-
-// ---- init ----
-startRun(); // auto-start so you always see the field
-function startRun(){
-  runID += 1;
-  mode = "path";
-  step = 0;
-  complete = false;
-  traveling = false;
-  tMove = 0;
-  fade = 0;
-  decisions = [];
-  selected = null;
-  youWorld = { x: W*0.5, y: H*0.80 };
-  optA = generateHorizon(3);
-  optB = [];
-  syncUI();
-}
-function generateHorizon(count){
-  // use current youWorld for positioning
-  return generateHorizonAt(count);
-}
-function generateHorizonAt(count){
-  const open = UI.slOpen.value/100;
-  const hor  = +UI.slHor.value;
-
-  const bandDy = -lerp(190, 430, clamp(hor/12,0,1));
-  const spreadX = lerp(170, 430, open);
-  const spreadY = lerp(30, 120, open);
-
-  const centers = [
-    -lerp(180, 260, open),
-     0,
-     lerp(180, 260, open)
-  ];
-
-  const nodes = [];
-  if(count === 3){
-    for(let s=0;s<3;s++){
-      nodes.push(makeOptionNode(s, youWorld.x + centers[s] + rand(-30,30), youWorld.y + bandDy + rand(-25,25)));
-    }
-    return nodes;
-  }
-
-  const perStream = Math.max(1, Math.round(count/3));
-  for(let s=0;s<3;s++){
-    for(let i=0;i<perStream;i++){
-      nodes.push(makeOptionNode(s,
-        youWorld.x + centers[s] + rand(-spreadX*0.35, spreadX*0.35),
-        youWorld.y + bandDy + rand(-spreadY, spreadY)
-      ));
-    }
-  }
-  while(nodes.length > count) nodes.pop();
-  return nodes;
-}
-function makeOptionNode(idx, x, y){
-  const o = makeOption(idx);
-  // place its center in world coords
-  o.x = x; o.y = y;
-  return o;
-}
-function makeOption(idx){
-  const O = UI.slOpen.value/100;
-  const J = clamp((+UI.slHor.value)/12, 0, 1);
-  const density = clamp(lerp(0.15, 0.95, 0.25 + 0.75*O) * rand(0.75, 1.15), 0, 1);
-  const jitter  = clamp(lerp(0.05, 0.95, J) * rand(0.7, 1.2), 0, 1);
-  const pulse   = clamp(lerp(0.20, 0.95, 0.35 + 0.65*density) * rand(0.8, 1.1), 0, 1);
-
-  return {
-    idx,
-    x: 0, y: 0,
-    density, jitter, pulse,
-    phase: rand(0, TAU),
-    phase2: rand(0, TAU)
-  };
-}
-
-// override earlier resetField so Start button works as well
-UI.btnStart.onclick = ()=> startRun();
-UI.btnReset.onclick = ()=> startRun();
-
-// wire Travel to commit
-UI.btnTravel.onclick = ()=>{
-  if(mode==="path" && selected && !traveling && !complete) beginTravel(selected);
-};
-
-// override click-driven travel animation in this “final prototype”
-function beginTravel(choice){
-  traveling = true;
-  tMove = 0;
-  fade = 0;
-
-  const sp = UI.slSpeed.value/100;
-  moveDur = clamp(0.95 - 0.55*sp, 0.20, 0.95);
-
-  // record decision snapshot
-  const snapshot = optA.map(o=>({density:o.density, jitter:o.jitter, pulse:o.pulse}));
-  decisions.push({ chosen: choice.idx, opts: snapshot });
-
-  // next step
-  step += 1;
-
-  // next horizon always 3 voices for this simplified “few voices” model
-  optB = generateHorizonAt(3);
-
-  // completion
-  if(step >= MAX_STEPS){
-    complete = true;
-    // tree hidden until complete: wipe fields after travel ends
-  }
-
-  selected = null;
-  syncUI();
-
-  // Travel tween: we slide the whole field slightly to simulate movement, then swap
-  // (kept subtle and non-directional)
-}
-
-// travel update integrated into loop: we need to advance travel state & crossfade
-let lastT = performance.now();
-function loop2(t){
-  const dt = Math.min(0.05, (t-lastT)/1000);
-  lastT = t;
-
-  // animate option phases
-  for(const o of optA){ o.phase += dt*(0.8 + 2.0*o.pulse); o.phase2 += dt*(0.6 + 3.0*o.jitter); }
-  for(const o of optB){ o.phase += dt*(0.8 + 2.0*o.pulse); o.phase2 += dt*(0.6 + 3.0*o.jitter); }
+  const dt = Math.min(0.05, (t-last)/1000);
+  last = t;
 
   if(traveling){
     tMove += dt / moveDur;
     const tt = clamp(tMove, 0, 1);
-    const s = ease(tt);
-
     fade = clamp((tt - 0.35)/0.65, 0, 1);
-
-    // subtle “movement” feel: push current horizon downward a bit and blur it via alpha
-    // (non-directional, avoids the creeping-wall directional issue)
-    const push = lerp(0, 55, s);
-    for(const o of optA){ o.y += push*dt*2; }
-
     if(tt >= 1){
       traveling = false;
-      optA = optB;
-      optB = [];
       fade = 0;
-
-      if(complete){
-        // hide field once complete
-        optA = [];
-        optB = [];
-      }
       syncUI();
     }
   }
 
-  draw();
+  if(mode === "overview") drawOverview();
+  else drawPath();
+
   syncUI();
-  requestAnimationFrame(loop2);
+  requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop2);
+
+// ---------- init ----------
+startRun();
+requestAnimationFrame(loop);

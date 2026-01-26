@@ -9,6 +9,7 @@
     :root {
       --ink: #111;
       --soft: #666;
+      --faint: #9a9a9a;
       --bg: #ffffff;
     }
 
@@ -36,7 +37,6 @@
       gap: 14px;
     }
 
-    /* top row: logo + word */
     .lockup {
       display: flex;
       align-items: center;
@@ -62,14 +62,29 @@
       white-space: nowrap;
     }
 
-    /* tagline matches visual width by font scale */
     .subtitle {
       font-size: clamp(14px, 1.8vw, 18px);
       letter-spacing: 0.12em;
       color: var(--soft);
     }
 
-    /* mobile tuning */
+    .paper {
+      margin-top: 6px;
+      font-size: clamp(12px, 1.5vw, 14px);
+      letter-spacing: 0.08em;
+    }
+
+    .paper a {
+      color: var(--faint);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+
+    .paper a:hover {
+      color: var(--soft);
+      border-bottom: 1px solid var(--soft);
+    }
+
     @media (max-width: 600px) {
       .lockup {
         gap: 18px;
@@ -85,13 +100,18 @@
   <div class="wrap">
     <div class="stack">
       <div class="lockup">
-        <!-- update filename if needed -->
         <img src="logo.svg" alt="PhyloMAT logo" class="logo" />
         <div class="title">PhyloMAT</div>
       </div>
 
       <div class="subtitle">
         Motif Analysis Tool for Phylogenomics
+      </div>
+
+      <div class="paper">
+        <a href="https://pubmed.ncbi.nlm.nih.gov/15595740/" target="_blank" rel="noopener">
+          Original publication · PubMed
+        </a>
       </div>
     </div>
   </div>

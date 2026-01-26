@@ -1,0 +1,41 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="-100 -100 200 200"
+  width="400"
+  height="400"
+>
+
+  <!-- PARAMETERS (easy to tweak) -->
+  <!-- Central node radius -->
+  <!-- Peripheral node radius -->
+  <!-- Connector stroke width -->
+
+  <!-- CONNECTORS -->
+  <g stroke="#1f1f1f" stroke-width="6" stroke-linecap="round">
+    <!-- 8 radial spokes -->
+    <line x1="0" y1="0" x2="0" y2="-52" />
+    <line x1="0" y1="0" x2="36.8" y2="-36.8" />
+    <line x1="0" y1="0" x2="52" y2="0" />
+    <line x1="0" y1="0" x2="36.8" y2="36.8" />
+    <line x1="0" y1="0" x2="0" y2="52" />
+    <line x1="0" y1="0" x2="-36.8" y2="36.8" />
+    <line x1="0" y1="0" x2="-52" y2="0" />
+    <line x1="0" y1="0" x2="-36.8" y2="-36.8" />
+  </g>
+
+  <!-- CENTRAL NODE -->
+  <circle cx="0" cy="0" r="14" fill="#7bc96f" />
+
+  <!-- PERIPHERAL NODES -->
+  <g fill="#e4572e">
+    <circle cx="0" cy="-70" r="8" />
+    <circle cx="49.5" cy="-49.5" r="8" />
+    <circle cx="70" cy="0" r="8" />
+    <circle cx="49.5" cy="49.5" r="8" />
+    <circle cx="0" cy="70" r="8" />
+    <circle cx="-49.5" cy="49.5" r="8" />
+    <circle cx="-70" cy="0" r="8" />
+    <circle cx="-49.5" cy="-49.5" r="8" />
+  </g>
+
+</svg>

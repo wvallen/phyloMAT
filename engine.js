@@ -1,13 +1,12 @@
-// phyloMAT 2.0 — Path Engine v0.4
-// Fixes DPR centering + adds orbit/pulse + line tension (taut vs limp)
-// Engine-first: runs immediately, buttons can be wired later.
-// First horizon has exactly 3 options.
+// phyloMAT 2.0 — Layered Stream Engine v1
+// 30-layer finite universe, first split into 3 streams, always moving forward.
+// Double-click applies lateral inertia (steering). No node selection.
+// Ends at a wall (layer 30). Bloom-forward motion, no snapping.
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-let W = 0, H = 0, DPR = 1;
-
+let W, H, DPR;
 function resize(){
   DPR = Math.max(1, window.devicePixelRatio || 1);
   W = window.innerWidth;
@@ -16,12 +15,12 @@ function resize(){
   canvas.height = Math.floor(H * DPR);
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // draw in CSS pixels
+  ctx.setTransform(DPR,0,0,DPR,0,0);
 }
 window.addEventListener("resize", resize);
 resize();
 
-// ---------- UI (sliders only; buttons ignored for now) ----------
+// ---- UI ----
 const slOpen  = document.getElementById("slOpen");
 const slHor   = document.getElementById("slHor");
 const slSpeed = document.getElementById("slSpeed");
@@ -31,226 +30,253 @@ const stOpt  = document.getElementById("stOpt");
 const stMode = document.getElementById("stMode");
 stMode.textContent = "path";
 
-// ---------- State ----------
-let step = 0;
-let moving = false;
+// ---- constants ----
+const TOTAL_LAYERS = 30;
 
-// The “you” anchor is always screen-centered (lower-mid feels good)
-function selfAnchor(){
-  return { x: W * 0.50, y: H * 0.72 };
+// z-axis: nodes spawn at zFar and move toward zNear
+const zNear = 0;
+const zFar  = 1;
+
+// projection: bigger when closer
+function projScale(z){
+  // z in [0..1], 0 near, 1 far
+  const t = 1 - z; // near -> 1
+  return 0.45 + 1.55 * t; // scale range
 }
 
-// A simple “position along the run” scalar so we can evolve hue + behavior
-let progress = 0;
-
-// current decision horizon nodes
-let nodes = [];
-
-// ---------- helpers ----------
-const rand = (a,b)=>a + Math.random()*(b-a);
-const lerp = (a,b,t)=>a + (b-a)*t;
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-
-function mutedRainbowHue(t){
-  // t in [0,1], returns hue degrees with muted spectrum preference
-  // biased toward blue/purple/teal, avoids harsh green/yellow spikes
-  const h = 180 + 120*t; // 180..300
-  return h;
+// anchor for "you"
+function anchor(){
+  return { x: W*0.50, y: H*0.78 };
 }
 
-// ---------- Horizon generation (arc + clustered groups) ----------
-function spawnHorizon(count){
-  nodes = [];
+// stream centers (3 planes)
+function streamCenters(){
+  const sep = Math.min(260, W*0.18);
+  return [
+    -sep,
+     0,
+     sep
+  ];
+}
 
+// muted rainbow palette for 3 streams
+const streamHue = [205, 250, 285]; // blue/teal/purple
+
+// ---- state ----
+let layer = 0;               // 0..TOTAL_LAYERS
+let alive = true;            // false when wall reached
+let chosenStream = 1;        // 0,1,2 (your lineage)
+let playerX = 0;             // lateral offset from center
+let playerVX = 0;            // inertia
+let phaseT = 0;              // global breath phase
+
+// nodes in current layer for each stream
+let layerNodes = [];         // [{stream,z,x,y, size, pulse, orbitPhase, orbitR, omega, tension}...]
+
+// ---- helpers ----
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp  = (a,b,t)=>a+(b-a)*t;
+const rand  = (a,b)=>a+Math.random()*(b-a);
+
+// make one layer of nodes (3 streams)
+function makeLayerNodes(){
+  const centers = streamCenters();
   const openness = slOpen.value/100;
-  const horizon = +slHor.value;
 
-  // arc spread and depth
-  const spread = lerp(Math.PI/10, Math.PI/2.0, openness);     // forward fan width
-  const baseR  = lerp(240, 420, clamp(horizon/12, 0, 1));     // how far out the horizon sits
+  // per-layer: exactly one node per stream (legible decision)
+  layerNodes = [];
+  for(let s=0;s<3;s++){
+    const baseX = centers[s];
+    const baseY = -Math.min(220, H*0.22) - rand(0, 60); // in front of you
 
-  // optional clustering: 1–3 clusters depending on openness
-  const clusters = Math.max(1, Math.round(lerp(1, 3, openness)));
-  const clusterCenters = [];
-  for(let c=0;c<clusters;c++){
-    clusterCenters.push(rand(-spread*0.45, spread*0.45));
-  }
+    const energy = clamp(0.35 + 0.65*Math.random(), 0, 1);
 
-  for(let i=0;i<count;i++){
-    // choose a cluster center, then sample around it
-    const c = clusterCenters[Math.floor(rand(0, clusterCenters.length))];
-    const ang = c + rand(-spread*0.18, spread*0.18);
-
-    // energy controls “tautness” and orbit coherence
-    const energy = clamp(0.25 + 0.75*Math.random(), 0, 1);
-
-    // orbit params (this is the future projection signature)
-    const orbitR = lerp(4, 16, energy) * (0.9 + 0.2*Math.random());
-    const omega  = lerp(0.006, 0.020, energy) * (0.8 + 0.4*Math.random());
-    const phase  = Math.random() * Math.PI * 2;
-
-    // node size: less balloon, more “living point”
-    const size = lerp(10, 18, 0.35 + 0.65*energy);
-
-    // color: muted rainbow drift across run + local variance by energy
-    const hue = mutedRainbowHue((progress % 1));
-    const hueJitter = lerp(-18, 18, Math.random());
-    const sat = lerp(35, 70, energy);        // muted → alive
-    const light = lerp(55, 62, 0.5 + 0.5*energy);
-
-    nodes.push({
-      ang,
-      r: baseR * rand(0.92, 1.08),
-      size,
-      energy,
-      orbitR,
-      omega,
-      phase,
-      hue: (hue + hueJitter + 360) % 360,
-      sat,
-      light,
-      // pulse states
-      pulsePhase: Math.random() * Math.PI * 2,
-      pulseW: lerp(0.008, 0.030, energy),
+    layerNodes.push({
+      stream: s,
+      z: zFar,                            // start far, move toward near
+      x: baseX,
+      y: baseY,
+      size: lerp(14, 20, energy),
+      pulse: Math.random()*Math.PI*2,
+      orbitPhase: Math.random()*Math.PI*2,
+      orbitR: lerp(4, 12, energy),        // subtle orbit
+      omega: lerp(0.012, 0.028, energy),
+      tension: lerp(0.25, 1.0, energy),   // line tautness
+      energy
     });
   }
 
-  stOpt.textContent = String(nodes.length);
+  stOpt.textContent = "3";
 }
 
-// ---------- Motion (direction commit, no selection) ----------
+// initialize
+makeLayerNodes();
+stStep.textContent = "0";
+
+// ---- steering: double-click adds lateral impulse ----
 canvas.addEventListener("dblclick", (ev)=>{
-  if(moving) return;
+  if(!alive) return;
 
-  // double-click chooses direction, not a node
-  const a = selfAnchor();
-  const mx = ev.clientX - a.x;
-  const my = ev.clientY - a.y;
+  const a = anchor();
+  const dx = ev.clientX - a.x; // screen-space
+  const impulse = clamp(dx / (W*0.35), -1, 1); // normalize
 
-  // if click is very close to self, assume forward
-  const dirMag = Math.hypot(mx, my);
-  const dx = dirMag < 6 ? 0 : mx / dirMag;
-  const dy = dirMag < 6 ? -1 : my / dirMag;
-
-  // travel impulse
+  // inertia strength scales with Speed slider (more speed, more “force”)
   const speed = slSpeed.value/100;
-  vy = -speed * 320 * 0.016;  // integrate per frame (scaled below)
-  vx = speed * 140 * dx * 0.016;
-
-  moving = true;
+  playerVX += impulse * (28 + 55*speed);
 });
 
-let vx = 0, vy = 0;
+// ---- update ----
+function update(dt){
+  if(!alive) return;
 
-function update(){
+  phaseT += dt;
+
+  // inertia decay
+  playerVX *= 0.92;
+  playerX  += playerVX * dt;
+
+  // soft clamp player within a lane envelope
+  playerX = clamp(playerX, -W*0.35, W*0.35);
+
+  // forward motion: nodes move toward you continuously
   const speed = slSpeed.value/100;
+  const flow = (0.20 + 0.55*speed) * dt; // how fast z advances
 
-  // advance world “progress” slowly even at rest
-  progress += 0.0008 + 0.0016*speed;
+  for(const n of layerNodes){
+    n.z = Math.max(zNear, n.z - flow);
+    n.pulse += dt * (0.9 + 1.6*n.energy);
+    n.orbitPhase += n.omega;
 
-  if(moving){
-    // camera movement is abstracted: we just “step” and re-roll horizon after easing
-    vx *= 0.93;
-    vy *= 0.93;
+    // slight orbit
+    const ox = Math.cos(n.orbitPhase) * n.orbitR;
+    const oy = Math.sin(n.orbitPhase) * n.orbitR * 0.55;
+    n._ox = ox;
+    n._oy = oy;
+  }
 
-    if(Math.hypot(vx,vy) < 0.0025){
-      moving = false;
-      step++;
-      stStep.textContent = String(step);
+  // when layer hits you (z near), advance
+  const arrived = layerNodes.some(n => n.z <= zNear + 0.0001);
+  if(arrived){
+    layer += 1;
+    stStep.textContent = String(layer);
 
-      // first step is exactly 3
-      if(step === 1){
-        spawnHorizon(3);
-      } else {
-        const openness = slOpen.value/100;
-        const target = Math.floor(lerp(2, 26, openness));
-        spawnHorizon(Math.max(1, target));
-      }
+    // choose stream based on which stream node is closest to your lateral position
+    // (decision emerges from inertia, not from selecting a node)
+    const centers = streamCenters();
+    const px = playerX;
+    let bestS = 1;
+    let bestD = Infinity;
+    for(let s=0;s<3;s++){
+      const d = Math.abs(px - centers[s]);
+      if(d < bestD){ bestD = d; bestS = s; }
     }
+    chosenStream = bestS;
+
+    // wall reached
+    if(layer >= TOTAL_LAYERS){
+      alive = false;
+      stMode.textContent = "wall";
+      stOpt.textContent = "0";
+      return;
+    }
+
+    // “bloom forward”: regenerate next layer immediately (no snap pause)
+    makeLayerNodes();
   }
 }
 
-// ---------- Rendering ----------
+// ---- draw ----
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0,0,W,H);
 
-  const a = selfAnchor();
+  const a = anchor();
+  const centers = streamCenters();
 
-  // draw “you”
-  ctx.fillStyle = "rgba(0,0,0,0.95)";
-  ctx.beginPath();
-  ctx.arc(a.x, a.y, 6, 0, Math.PI*2);
-  ctx.fill();
+  // you node (moves laterally with inertia)
+  const youX = a.x + playerX;
+  const youY = a.y;
 
-  // draw horizon nodes
-  for(const n of nodes){
-    // orbital motion: orbit is part of the future projection
-    n.phase += n.omega;
+  // draw faint wall indicator when near end
+  const remaining = TOTAL_LAYERS - layer;
+  if(remaining <= 6){
+    const alpha = clamp((6-remaining)/6, 0, 1) * 0.10;
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    ctx.fillRect(0, 0, W, 8);
+  }
 
-    // pulse: energy drives pulse tightness
-    n.pulsePhase += n.pulseW;
-    const pulse = 0.85 + 0.15*Math.sin(n.pulsePhase);
+  // tethers + nodes
+  for(const n of layerNodes){
+    const s = projScale(n.z);
+    const x = youX + (n.x - playerX) * 0.55 + n._ox;  // separated, but still feels forward
+    const y = youY + (n.y) * s + n._oy;
 
-    const ox = Math.cos(n.phase) * n.orbitR;
-    const oy = Math.sin(n.phase) * n.orbitR * 0.65;
+    const loom = s; // near -> larger
+    const pulse = 0.85 + 0.15*Math.sin(n.pulse);
 
-    // position on forward arc (in screen coords)
-    const x = a.x + Math.sin(n.ang) * n.r + ox;
-    const y = a.y - Math.cos(n.ang) * n.r + oy;
+    // tension: chosen stream tauter; others limp slightly
+    const chosenBoost = (n.stream === chosenStream) ? 1.0 : 0.55;
+    const tension = clamp(n.tension * chosenBoost, 0, 1);
 
-    // “loom”: nearer horizon feels more present
-    const loom = clamp(1 - n.r/900, 0, 1);
+    // line thickness/alpha = topology tension signal
+    ctx.strokeStyle = `rgba(0,0,0,${0.05 + 0.22*tension})`;
+    ctx.lineWidth = 0.8 + 2.2*tension;
 
-    // tension on the tether:
-    // taut when energy is high and horizon distance is moderate;
-    // limp when energy is low or far out.
-    const tension = clamp(0.10 + 0.80*(n.energy) * (0.6 + 0.4*loom), 0, 1);
-
-    // tether line (taut vs limp)
-    const lineAlpha = 0.03 + 0.18*tension;
-    const lineW = 0.8 + 2.0*tension;
-    ctx.strokeStyle = `rgba(0,0,0,${lineAlpha})`;
-    ctx.lineWidth = lineW;
     ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
+    ctx.moveTo(youX, youY);
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    // node glow (muted rainbow)
-    const r = n.size * (0.95 + 0.35*loom) * pulse;
+    // node color: muted rainbow by stream, with slight per-node drift
+    const hue = (streamHue[n.stream] + (n.energy-0.5)*18 + 360) % 360;
+    const sat = lerp(35, 70, n.energy);
+    const light = lerp(58, 64, 0.5 + 0.5*n.energy);
 
-    // soft halo
+    // halo
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${n.hue},${n.sat}%,${n.light}%,${0.10 + 0.12*tension})`;
-    ctx.arc(x, y, r*2.2, 0, Math.PI*2);
+    ctx.fillStyle = `hsla(${hue},${sat}%,${light}%,${0.10 + 0.16*tension})`;
+    ctx.arc(x, y, (n.size*loom)*2.1, 0, Math.PI*2);
     ctx.fill();
 
     // core
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${n.hue},${n.sat}%,${n.light-6}%,${0.55 + 0.30*tension})`;
-    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = `hsla(${hue},${sat}%,${light-6}%,${0.45 + 0.40*tension})`;
+    ctx.arc(x, y, n.size*loom*pulse, 0, Math.PI*2);
     ctx.fill();
 
     // crisp edge to avoid balloon look
-    ctx.strokeStyle = `rgba(0,0,0,${0.10 + 0.25*tension})`;
+    ctx.strokeStyle = `rgba(0,0,0,${0.08 + 0.22*tension})`;
     ctx.lineWidth = 1.0;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.arc(x, y, n.size*loom*pulse, 0, Math.PI*2);
     ctx.stroke();
+  }
+
+  // draw you
+  ctx.fillStyle = "rgba(0,0,0,0.96)";
+  ctx.beginPath();
+  ctx.arc(youX, youY, 6.2, 0, Math.PI*2);
+  ctx.fill();
+
+  // if wall reached, render a quiet stop state
+  if(!alive){
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.font = '14px "Courier New", monospace';
+    ctx.fillText("wall", youX + 12, youY + 5);
   }
 }
 
-// ---------- Loop ----------
-function frame(){
-  update();
-  draw();
-  requestAnimationFrame(frame);
-}
+// ---- loop ----
+let last = performance.now();
+function loop(t){
+  const dt = Math.min(0.05, (t-last)/1000);
+  last = t;
 
-// ---------- Init ----------
-spawnHorizon(3);
-stStep.textContent = "0";
-stOpt.textContent = String(nodes.length);
-requestAnimationFrame(frame);
+  update(dt);
+  draw();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);

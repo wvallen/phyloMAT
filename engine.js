@@ -1,164 +1,164 @@
-// phyloMAT 2.0 — decision field engine
-// camera-forward, irreversible, field-based
+// phyloMAT Path Mode v0
+// First-person decision field
+// No overview, no tree, no export
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
 let W, H, DPR;
-
 function resize(){
-  DPR = window.devicePixelRatio || 1;
-  W = canvas.clientWidth = window.innerWidth;
-  H = canvas.clientHeight = window.innerHeight;
-  canvas.width = Math.floor(W * DPR);
-  canvas.height = Math.floor(H * DPR);
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = canvas.width = window.innerWidth * DPR;
+  H = canvas.height = window.innerHeight * DPR;
+  canvas.style.width = window.innerWidth+"px";
+  canvas.style.height = window.innerHeight+"px";
   ctx.setTransform(DPR,0,0,DPR,0,0);
 }
-window.addEventListener('resize', resize);
+window.addEventListener("resize", resize);
 resize();
 
-// ---- UI ----
-const ui = {
-  start: document.getElementById('btnStart'),
-  travel: document.getElementById('btnTravel'),
-  overview: document.getElementById('btnOverview'),
-  reset: document.getElementById('btnReset'),
-  openness: document.getElementById('slOpen'),
-  horizon: document.getElementById('slHor'),
-  speed: document.getElementById('slSpeed'),
-  box: document.getElementById('togBox'),
-};
+// ---------- UI ----------
+const slOpen = document.getElementById("slOpen");
+const slHor  = document.getElementById("slHor");
+const slSpeed= document.getElementById("slSpeed");
 
-// ---- RNG ----
-let seed = Math.floor(Math.random()*1e9);
-function rand(){ seed = (seed*1664525+1013904223)%4294967296; return seed/4294967296; }
+const stStep = document.getElementById("stStep");
+const stOpt  = document.getElementById("stOpt");
+const stMode = document.getElementById("stMode");
 
-// ---- State ----
-let running = false;
+stMode.textContent = "path";
+
+// ---------- State ----------
 let step = 0;
-let mode = 'path';
+let moving = false;
 
-const universe = {
-  minX: 0.1,
-  maxX: 0.9,
-  minY: 0.05,
-  maxY: 0.95
+const camera = {
+  x: 0,
+  y: 0,
+  vx: 0,
+  vy: 0
 };
 
-let you = { x: 0.5, y: 0.85, vx: 0, vy: -1 };
-let spine = [];
+// universe box
+const BOX = {
+  w: 2000,
+  h: 3000
+};
+
+// options in front of camera
 let options = [];
 
-// ---- Option generation ----
-function spawnOptions(){
+// ---------- Math helpers ----------
+const rand = (a,b)=>a+Math.random()*(b-a);
+const lerp = (a,b,t)=>a+(b-a)*t;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function unit(v){
+  const d=Math.hypot(v.x,v.y)||1;
+  return {x:v.x/d,y:v.y/d};
+}
+
+// ---------- Option generation ----------
+function spawnOptions(count){
   options = [];
-  const open = ui.openness.value/100;
-  const horizon = parseInt(ui.horizon.value,10);
-
-  const count = step === 0 ? 3 : Math.max(1, Math.round(horizon * (0.4 + open)));
-
-  const baseAngle = Math.atan2(you.vy, you.vx);
-  const spread = Math.PI * (0.15 + 0.6*open);
+  const openness = slOpen.value/100;
+  const horizon  = slHor.value;
+  const spread   = lerp(0.15, 0.9, openness);
 
   for(let i=0;i<count;i++){
-    const a = baseAngle + (rand()-0.5)*spread;
-    const r = 0.18 + rand()*0.22;
+    const a = rand(-spread, spread);
+    const d = rand(180, 260) * horizon;
     options.push({
-      x: you.x + Math.cos(a)*r,
-      y: you.y + Math.sin(a)*r,
-      a,
-      r: 6 + rand()*10,
-      pulse: rand()*Math.PI*2
+      ang: a,
+      dist: d,
+      r: rand(10,18),
+      pulse: Math.random()*6.28,
+      drift: rand(0.4,0.9)
     });
   }
+  stOpt.textContent = options.length;
 }
 
-// ---- Commit movement ----
-function commitDirection(dx,dy){
-  const m = Math.hypot(dx,dy) || 1;
-  you.vx = dx/m;
-  you.vy = dy/m;
-  ui.travel.disabled = false;
+// ---------- Movement ----------
+function commitDirection(dir){
+  const speed = slSpeed.value/100;
+  camera.vx = dir.x * speed * 220;
+  camera.vy = dir.y * speed * 220;
+  moving = true;
 }
 
-function travel(){
-  spine.push({x:you.x,y:you.y});
-  you.x += you.vx*0.18;
-  you.y += you.vy*0.18;
-  step++;
+canvas.addEventListener("dblclick", (ev)=>{
+  if(moving) return;
 
-  if(ui.box.checked){
-    you.x = Math.max(universe.minX, Math.min(universe.maxX, you.x));
-    you.y = Math.max(universe.minY, Math.min(universe.maxY, you.y));
-  }
+  const mx = ev.clientX - window.innerWidth/2;
+  const my = ev.clientY - window.innerHeight*0.65;
 
-  spawnOptions();
-}
-
-// ---- Input ----
-canvas.addEventListener('dblclick', e=>{
-  if(!running) return;
-  const nx = e.clientX/W - you.x;
-  const ny = e.clientY/H - you.y;
-  commitDirection(nx,ny);
-  travel();
+  const dir = unit({x:mx,y:my||-1});
+  commitDirection(dir);
 });
 
-ui.start.onclick = ()=>{
-  running = true;
-  step = 0;
-  spine = [];
-  you = { x:0.5, y:0.85, vx:0, vy:-1 };
-  spawnOptions();
-};
+// ---------- Draw ----------
+function drawOptions(t){
+  for(const o of options){
+    o.pulse += 0.02*o.drift;
 
-ui.travel.onclick = travel;
-ui.reset.onclick = ()=>{
-  running = false;
-  step = 0;
-  spine = [];
-  options = [];
-};
+    const px = W/2 + Math.sin(o.ang)*o.dist;
+    const py = H*0.65 - Math.cos(o.ang)*o.dist;
 
-// ---- Draw ----
-function draw(){
-  ctx.clearRect(0,0,W,H);
+    const loom = clamp(1 - o.dist/900, 0, 1);
+    const r = o.r * (1.2 + loom*2.4);
 
-  // spine
-  if(spine.length>1){
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 2;
     ctx.beginPath();
-    spine.forEach((p,i)=>{
-      if(i===0) ctx.moveTo(p.x*W,p.y*H);
-      else ctx.lineTo(p.x*W,p.y*H);
-    });
-    ctx.lineTo(you.x*W,you.y*H);
-    ctx.stroke();
-  }
-
-  // options
-  options.forEach(o=>{
-    o.pulse += 0.04;
-    const pr = o.r + Math.sin(o.pulse)*2;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.arc(o.x*W,o.y*H,pr,0,Math.PI*2);
+    ctx.fillStyle = `rgba(80,120,180,${0.45+0.4*loom})`;
+    ctx.arc(px,py,r*(1+0.15*Math.sin(o.pulse)),0,Math.PI*2);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    // tether line
+    ctx.strokeStyle = `rgba(0,0,0,${0.08+0.12*loom})`;
     ctx.beginPath();
-    ctx.moveTo(you.x*W,you.y*H);
-    ctx.lineTo(o.x*W,o.y*H);
+    ctx.moveTo(W/2,H*0.65);
+    ctx.lineTo(px,py);
     ctx.stroke();
-  });
-
-  // you
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.arc(you.x*W,you.y*H,5,0,Math.PI*2);
-  ctx.fill();
-
-  requestAnimationFrame(draw);
+  }
 }
 
-draw();
+// ---------- Update ----------
+function update(){
+  if(moving){
+    camera.x += camera.vx*0.016;
+    camera.y += camera.vy*0.016;
+
+    camera.vx *= 0.94;
+    camera.vy *= 0.94;
+
+    if(Math.hypot(camera.vx,camera.vy)<1){
+      moving=false;
+      step++;
+      stStep.textContent = step;
+
+      // first step: exactly 3
+      if(step===1) spawnOptions(3);
+      else spawnOptions(
+        Math.max(1, Math.floor(lerp(2, 28, slOpen.value/100)))
+      );
+    }
+  }
+}
+
+// ---------- Render loop ----------
+function frame(t){
+  ctx.clearRect(0,0,W,H);
+
+  // soft background
+  ctx.fillStyle="#fff";
+  ctx.fillRect(0,0,W,H);
+
+  drawOptions(t);
+  update();
+
+  requestAnimationFrame(frame);
+}
+
+// ---------- Init ----------
+spawnOptions(3);
+requestAnimationFrame(frame);

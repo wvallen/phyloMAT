@@ -1,28 +1,5 @@
-phyloMAT v1
+# PhyloMAT
 
-Files:
-- index.html
-- styles.css
-- engine.js
-- atlas.xml
+An automated protein motif analysis tool for phylogenomics, built in 2003 during my MS at the University of Illinois.
 
-Run:
-Serve this folder with a local web server.
-Example:
-python3 -m http.server 8000
-
-Open:
-http://localhost:8000
-
-Use:
-- Drag to pan
-- Wheel to zoom
-- Click to select
-- Shift-click to pin
-- Export PNG produces a snapshot of the canvas
-- Export state.xml captures camera and pinned nodes
-- Generate LLM prompt exports prompt.txt including a local atlas excerpt
-
-Extend:
-Paste new patches into atlas.xml under <patches>.
-Coordinates are editorial and can be adjusted by hand.
+Graham WV, Tcheng DK, Shirk AL, Attene Ramos M, Welge ME, Gaskins HR. PhyloMAT: an automated protein motif analysis tool for phylogenomics. J Proteome Res. 2004;3(6):1289. PMID: 15595740.
